@@ -7,7 +7,10 @@ This is the project description for Group 140 in the 02476 Machine Learning Oper
 The framework chosen for this project is PyTorch, with the TIMM (PyTorch Image Models) library used for computer vision. TIMM provides access to a wide range of pretrained convolutional neural networks (CNNs), which allows us to efficiently fine-tune existing models instead of training from scratch. The framework will be integrated into a structured codebase with version control and configuration management.
 
 ## Data
-The dataset used in this project is the Cars Image Dataset from Kaggle. The dataset consists of labeled images of cars belonging to different car brands, such as Audi, BMW, Toyota, Rolls-Royce, Mercedes-Benz, and others. Each image is associated with a single car brand, making the task a supervised multi-class image classification problem. The dataset provides a realistic and diverse set of car images suitable for training and evaluating convolutional neural networks.  
+The dataset used in this project is the Cars Image Dataset from Kaggle. The dataset consists of labeled images of cars belonging to different car brands, Audi, Hyundai Creta, Rolls Royce, Swift, Tata Safari, Toyota Innova. Each image is associated with a single car brand, making the task a supervised multi-class image classification problem. The dataset provides a realistic and diverse set of car images suitable for training and evaluating convolutional neural networks.  
+
+Size: 37.52 MB
+
 
 [Kaggle Cars Image Dataset](https://www.kaggle.com/datasets/kshitij192/cars-image-dataset/data)
 
