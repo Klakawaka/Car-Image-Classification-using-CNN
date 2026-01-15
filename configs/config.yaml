@@ -1,0 +1,8 @@
+defaults:
+  - data: default
+  - training: default
+  - model: resnet
+  - experiment: resnet_pretrained
+  - _self_
+
+seed: 42

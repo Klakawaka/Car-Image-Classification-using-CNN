@@ -1,0 +1,2 @@
+model_type: resnet
+pretrained: true
