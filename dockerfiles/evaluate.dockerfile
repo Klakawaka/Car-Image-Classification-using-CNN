@@ -25,11 +25,12 @@ COPY LICENSE LICENSE
 # Install the project itself
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev
 
-# Note: Model weights should be mounted as a volume at runtime
-# Example: docker run -v /path/to/models:/app/models api:latest
+# Note: Model and test data will be mounted as volumes at runtime
+# Example usage:
+# docker run --rm \
+#   -v /path/to/models:/app/models \
+#   -v /path/to/test/data:/app/raw/test \
+#   evaluate:latest models/best_model.pth
 
-# Expose port for FastAPI
-EXPOSE 8000
-
-# Run FastAPI server
-ENTRYPOINT ["uv", "run", "uvicorn", "src.car_image_classification_using_cnn.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run evaluation script with unbuffered output (-u flag)
+ENTRYPOINT ["uv", "run", "python", "-u", "src/car_image_classification_using_cnn/evaluate.py"]
