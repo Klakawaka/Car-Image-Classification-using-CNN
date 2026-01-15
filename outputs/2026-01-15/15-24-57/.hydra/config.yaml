@@ -1,0 +1,20 @@
+data:
+  train_data_path: raw/train
+  test_data_path: raw/test
+  image_size:
+  - 224
+  - 224
+training:
+  num_epochs: 20
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  output_dir: models
+  device: auto
+  num_workers: 0
+model:
+  model_type: resnet
+  pretrained: true
+experiment:
+  name: resnet_pretrained
+seed: 42
