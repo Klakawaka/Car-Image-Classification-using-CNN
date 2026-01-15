@@ -16,3 +16,21 @@ Size: 37.52 MB
 
 ## Models
 The project focuses on performing an image classification task on the car brand dataset using convolutional neural networks. We expect to use pretrained models from the TIMM framework, such as ResNet, EfficientNet, MobileNet, and ConvNeXt, as baseline and comparison models. The models will be fine-tuned on the dataset, and their performance will be evaluated using standard classification metrics.
+
+## Docker Support
+
+This project includes Docker support for reproducible training and evaluation. See [docs/DOCKER.md](docs/DOCKER.md) for comprehensive usage instructions.
+
+### Quick Start
+
+Build and run training:
+```bash
+docker build -f dockerfiles/train.dockerfile . -t car-classifier-train:latest
+docker run --rm -v $(pwd)/models:/app/models car-classifier-train:latest
+```
+
+Build and run evaluation:
+```bash
+docker build -f dockerfiles/evaluate.dockerfile . -t car-classifier-eval:latest
+docker run --rm -v $(pwd)/models:/app/models -v $(pwd)/raw/test:/app/raw/test car-classifier-eval:latest models/best_model.pth
+```

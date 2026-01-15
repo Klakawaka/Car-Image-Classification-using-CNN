@@ -53,16 +53,20 @@ dev = [
 ]
 
 [tool.uv]
-# Make the lockfile resolve for BOTH mac architectures
+# Make the lockfile resolve for macOS and Linux (for Docker)
 required-environments = [
   "sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+  "sys_platform == 'linux' and platform_machine == 'aarch64'",
 ]
 
-# (Optional) Limit resolution to macOS only (remove if you also want CI on Linux/Windows)
+# Support both macOS and Linux
 environments = [
   "sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+  "sys_platform == 'linux' and platform_machine == 'aarch64'",
 ]
 
 [tool.ruff]
