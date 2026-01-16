@@ -198,3 +198,10 @@ models/*.pt
 logs/
 models/*.log
 /raw
+
+# GCP credentials
+github-actions-key.json
+*.json
+!pyproject.toml
+!uv.lock
+!package.json

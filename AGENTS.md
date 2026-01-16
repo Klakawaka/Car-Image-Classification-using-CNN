@@ -15,6 +15,17 @@
     `tasks.py` file.
 * The project uses `pre-commit` for managing pre-commit hooks. To run all hooks on all files, use
     `uv run pre-commit run --all-files`. For more information, refer to the `.pre-commit-config.yaml` file.
+* The project uses `dvc` for data version control:
+    * To add data to DVC tracking, use `uv run dvc add <path>`.
+    * To push data to remote storage, use `uv run dvc push`.
+    * To pull data from remote storage, use `uv run dvc pull`.
+    * To check status, use `uv run dvc status`.
+    * Remote storage is configured for Google Cloud Storage bucket: `dtu-mlops-car-classification_bucket`.
+* The project uses GitHub Actions for CI/CD:
+    * `.github/workflows/gcs-sync.yaml` automatically builds and pushes Docker images on push to main.
+    * `.github/workflows/tests.yaml` runs unit tests on push and pull requests.
+    * Images are pushed to Google Container Registry (GCR).
+    * Optionally deploys to Google Cloud Run.
 
 # Code style
 
