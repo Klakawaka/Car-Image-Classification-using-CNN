@@ -7,6 +7,8 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from torch.profiler import profile, ProfilerActivity
+
 from car_image_classification_using_cnn.data import CarImageDataset, get_transforms
 from car_image_classification_using_cnn.model import create_model
 
@@ -19,20 +21,6 @@ def train_one_epoch(
     device: torch.device,
     epoch: int,
 ) -> Tuple[float, float]:
-    """
-    Train the model for one epoch.
-
-    Args:
-        model: The model to train.
-        train_loader: DataLoader for training data.
-        criterion: Loss function.
-        optimizer: Optimizer.
-        device: Device to train on.
-        epoch: Current epoch number.
-
-    Returns:
-        Tuple of (average_loss, accuracy).
-    """
     model.train()
     running_loss = 0.0
     correct = 0
@@ -64,19 +52,6 @@ def train_one_epoch(
 def validate(
     model: nn.Module, val_loader: DataLoader, criterion: nn.Module, device: torch.device, epoch: int
 ) -> Tuple[float, float]:
-    """
-    Validate the model.
-
-    Args:
-        model: The model to validate.
-        val_loader: DataLoader for validation data.
-        criterion: Loss function.
-        device: Device to validate on.
-        epoch: Current epoch number.
-
-    Returns:
-        Tuple of (average_loss, accuracy).
-    """
     model.eval()
     running_loss = 0.0
     correct = 0
@@ -95,7 +70,6 @@ def validate(
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-            # Update progress bar
             pbar.set_postfix({"loss": loss.item(), "acc": 100.0 * correct / total})
 
     epoch_loss = running_loss / total
@@ -114,19 +88,8 @@ def train(
     weight_decay: float = typer.Option(1e-4, help="Weight decay for regularization"),
     output_dir: Path = typer.Option("models", help="Directory to save model checkpoints"),
     device: str = typer.Option("auto", help="Device to train on: 'cpu', 'cuda', 'mps', or 'auto' (auto-detect)"),
+    profile_run: bool = typer.Option(False, help="Enable profiling for performance analysis (profiles 30 batches and exits)"),
 ) -> None:
-    """
-    Train the car classification model.
-
-    This function implements a complete training pipeline including:
-    - Data loading with augmentation
-    - Training and validation loops
-    - Model checkpointing
-    - Metrics tracking
-
-    Example:
-        uv run python -m car_image_classification_using_cnn.train --num-epochs 20 --batch-size 64
-    """
     print("=" * 70)
     print("CAR IMAGE CLASSIFICATION - TRAINING")
     print("=" * 70)
@@ -153,7 +116,7 @@ def train(
             device_obj = torch.device("cpu")
     else:
         device_obj = torch.device("cpu")
-    
+
     print(f"Using device: {device_obj}")
     if device_obj.type == "mps":
         print("  ✓ Apple Silicon GPU acceleration enabled (MPS)")
@@ -180,9 +143,10 @@ def train(
     print(f"  Test dataset: {len(test_dataset)} images")
     print(f"  Classes: {train_dataset.classes}")
 
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True)
+    # Create data loaders (optimization: num_workers + pin_memory only when useful)
+    pin = device_obj.type in ("cuda", "mps")
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=pin)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=pin)
 
     print(f"  Train batches: {len(train_loader)}")
     print(f"  Test batches: {len(test_loader)}")
@@ -199,8 +163,42 @@ def train(
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3, verbose=True)
+
+    # ----------------------------
+    # PROFILING MODE (M12)
+    # Put it here: after model + loaders + optimizer exist, before full training loop
+    # ----------------------------
+    if profile_run:
+        print("\n[Profiling enabled] Profiling 30 training batches...\n")
+
+        activities = [ProfilerActivity.CPU]
+        if device_obj.type == "cuda":
+            activities.append(ProfilerActivity.CUDA)
+
+        with profile(
+            activities=activities,
+            record_shapes=True,
+            profile_memory=True,
+        ) as prof:
+            model.train()
+            for batch_idx, (images, labels) in enumerate(train_loader):
+                if batch_idx >= 30:
+                    break
+
+                images, labels = images.to(device_obj), labels.to(device_obj)
+
+                optimizer.zero_grad()
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+
+                prof.step()
+
+        print(prof.key_averages().table(sort_by="self_cpu_time_total", row_limit=25))
+        print("\nProfiling finished. Exiting without full training.\n")
+        return
 
     print("\n" + "=" * 70)
     print("TRAINING")
@@ -214,12 +212,9 @@ def train(
         print("-" * 70)
 
         train_loss, train_acc = train_one_epoch(model, train_loader, criterion, optimizer, device_obj, epoch)
-
         val_loss, val_acc = validate(model, test_loader, criterion, device_obj, epoch)
-
         scheduler.step(val_loss)
 
-        # Print epoch summary
         print(f"\nEpoch {epoch} Summary:")
         print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}%")
         print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.2f}%")
@@ -256,7 +251,6 @@ def train(
             )
             print(f"  ✓ Saved checkpoint: {checkpoint_path.name}")
 
-    # Final summary
     print("\n" + "=" * 70)
     print("TRAINING COMPLETE")
     print("=" * 70)
