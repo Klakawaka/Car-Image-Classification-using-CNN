@@ -197,3 +197,4 @@ models/*.pt
 *.log
 logs/
 models/*.log
+/raw
