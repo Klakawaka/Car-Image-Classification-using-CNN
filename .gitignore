@@ -188,3 +188,12 @@ models/*.pt
 # But keep DVC metadata
 !models/*.dvc
 !models/.gitkeep
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+models/*.log
