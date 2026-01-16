@@ -1,6 +1,6 @@
 from pathlib import Path
 from PIL import Image, ImageOps
-import shutil
+
 
 def convert_all_to_grayscale(input_root: Path, output_root: Path) -> None:
     input_root = Path(input_root)
@@ -20,7 +20,7 @@ def convert_all_to_grayscale(input_root: Path, output_root: Path) -> None:
 
             for img_path in jpg_files:
                 with Image.open(img_path) as img:
-                    gray_img = img.convert("L")             # Grayscale
+                    gray_img = img.convert("L")  # Grayscale
                     normalized_img = ImageOps.equalize(gray_img)  # Normalize lighting
                     normalized_img.save(output_class_dir / img_path.name)
 
@@ -32,5 +32,5 @@ def convert_all_to_grayscale(input_root: Path, output_root: Path) -> None:
 if __name__ == "__main__":
     convert_all_to_grayscale(
         input_root=Path("/Users/sabirinomar/Car-Image-Classification-using-CNN/raw/test"),
-        output_root=Path("/Users/sabirinomar/Car-Image-Classification-using-CNN/raw/test")
+        output_root=Path("/Users/sabirinomar/Car-Image-Classification-using-CNN/raw/test"),
     )

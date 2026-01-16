@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 import pytest
 import torch
 from torch import nn
@@ -68,7 +65,7 @@ class TestCarClassificationCNN:
 
         # Check that most backbone parameters are frozen
         frozen_params = sum(1 for p in model.backbone.parameters() if not p.requires_grad)
-        total_params = sum(1 for p in model.backbone.parameters())
+        # total_params = sum(1 for p in model.backbone.parameters())
 
         assert frozen_params > 0, "Some parameters should be frozen after calling freeze_backbone"
 
@@ -90,9 +87,9 @@ class TestCarClassificationCNN:
         """Test that model has a reasonable number of parameters."""
         model = CarClassificationCNN(num_classes=6, pretrained=False)
         num_params = sum(p.numel() for p in model.parameters())
-        assert 1_000_000 < num_params < 50_000_000, (
-            f"Model should have between 1M and 50M parameters, got {num_params:,}"
-        )
+        assert (
+            1_000_000 < num_params < 50_000_000
+        ), f"Model should have between 1M and 50M parameters, got {num_params:,}"
 
     def test_model_output_is_float(self):
         """Test that model output is float tensor."""
@@ -159,9 +156,9 @@ class TestCustomCNN:
         """Test that custom model has a reasonable number of parameters."""
         model = CustomCNN(num_classes=6)
         num_params = sum(p.numel() for p in model.parameters())
-        assert 100_000 < num_params < 20_000_000, (
-            f"Model should have between 100K and 20M parameters, got {num_params:,}"
-        )
+        assert (
+            100_000 < num_params < 20_000_000
+        ), f"Model should have between 100K and 20M parameters, got {num_params:,}"
 
     def test_model_gradient_flow(self):
         """Test that gradients flow through the custom model."""
@@ -257,9 +254,9 @@ class TestModelInputValidation:
         # Outputs should be identical in eval mode
         eval_outputs_same = torch.allclose(output3, output4)
 
-        assert train_outputs_differ or eval_outputs_same, (
-            "Model should show different behavior in train vs eval mode (dropout effect)"
-        )
+        assert (
+            train_outputs_differ or eval_outputs_same
+        ), "Model should show different behavior in train vs eval mode (dropout effect)"
 
     def test_model_with_very_small_input(self):
         """Test model behavior with very small input size."""
@@ -339,4 +336,3 @@ class TestModelConsistency:
             output2 = model2(x)
 
         assert torch.allclose(output1, output2), "Loaded model should produce identical outputs to original"
-

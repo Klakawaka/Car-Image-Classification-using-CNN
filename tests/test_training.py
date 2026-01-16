@@ -195,7 +195,7 @@ class TestGradientFlow:
         model.eval()
         with torch.no_grad():
             outputs = model(images)
-            loss = criterion(outputs, labels)
+            criterion(outputs, labels)
 
         # Check that no gradients are stored
         has_gradients = any(p.grad is not None for p in model.parameters())
@@ -226,7 +226,8 @@ class TestGradientFlow:
 
         # Loss should generally decrease (check last loss vs first loss)
         assert losses[-1] < losses[0] * 1.5, (
-            f"Loss should decrease or stay similar during training. " f"Initial: {losses[0]:.4f}, Final: {losses[-1]:.4f}"
+            f"Loss should decrease or stay similar during training. "
+            f"Initial: {losses[0]:.4f}, Final: {losses[-1]:.4f}"
         )
 
 
@@ -274,9 +275,9 @@ class TestLossAndMetrics:
 
         # First two are wrong, last one is correct
         expected_accuracy = 100.0 / 3
-        assert abs(accuracy - expected_accuracy) < 0.01, (
-            f"Accuracy should be {expected_accuracy:.2f}%, got {accuracy:.2f}%"
-        )
+        assert (
+            abs(accuracy - expected_accuracy) < 0.01
+        ), f"Accuracy should be {expected_accuracy:.2f}%, got {accuracy:.2f}%"
 
 
 class TestOptimizerBehavior:
@@ -437,4 +438,3 @@ class TestModelCheckpointing:
         assert (
             new_optimizer.param_groups[0]["lr"] == optimizer.param_groups[0]["lr"]
         ), "Loaded optimizer should have same learning rate"
-

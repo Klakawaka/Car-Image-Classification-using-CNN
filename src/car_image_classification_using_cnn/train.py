@@ -88,7 +88,9 @@ def train(
     weight_decay: float = typer.Option(1e-4, help="Weight decay for regularization"),
     output_dir: Path = typer.Option("models", help="Directory to save model checkpoints"),
     device: str = typer.Option("auto", help="Device to train on: 'cpu', 'cuda', 'mps', or 'auto' (auto-detect)"),
-    profile_run: bool = typer.Option(False, help="Enable profiling for performance analysis (profiles 30 batches and exits)"),
+    profile_run: bool = typer.Option(
+        False, help="Enable profiling for performance analysis (profiles 30 batches and exits)"
+    ),
 ) -> None:
     print("=" * 70)
     print("CAR IMAGE CLASSIFICATION - TRAINING")

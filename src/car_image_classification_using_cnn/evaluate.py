@@ -2,7 +2,6 @@ from pathlib import Path
 
 import torch
 import typer
-from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
