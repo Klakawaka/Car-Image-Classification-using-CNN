@@ -51,6 +51,7 @@ dev = [
   "mypy==1.19.1",
   "pre-commit==4.1.0",
   "pytest==8.3.4",
+  "pytest-cov>=6.3.0",
   "ruff==0.1.3",
 ]
 
@@ -75,4 +76,13 @@ environments = [
 line-length = 120
 
 [tool.coverage.run]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "raw/*",
+    "data/*",
+    "models/*",
+    "outputs/*",
+    "reports/*",
+    "notebooks/*",
+    "*/tmp*/*",
+]
