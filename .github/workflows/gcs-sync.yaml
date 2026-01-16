@@ -1,0 +1,52 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/car-image-classification
+      REGION: europe-west1
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+    
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+    
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker gcr.io --quiet
+    
+    - name: Build Docker image
+      run: |
+        docker build -f dockerfiles/train.dockerfile . \
+          -t $IMAGE_NAME:${{ github.sha }} \
+          -t $IMAGE_NAME:latest
+    
+    - name: Push to GCR
+      run: |
+        docker push $IMAGE_NAME:${{ github.sha }}
+        docker push $IMAGE_NAME:latest
+    
+    - name: Deploy to Cloud Run
+      if: github.ref == 'refs/heads/main'
+      run: |
+        gcloud run deploy car-image-classification \
+          --image $IMAGE_NAME:latest \
+          --platform managed \
+          --region $REGION \
+          --allow-unauthenticated \
+          --memory 4Gi \
+          --cpu 2 \
+          --timeout 3600
