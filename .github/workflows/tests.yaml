@@ -8,22 +8,42 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v5
+    # Checkout code
+    - name: Checkout repo
+      uses: actions/checkout@v6
 
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v7
+    # Setup Python
+    - name: Setup Python
+      uses: actions/setup-python@v4
       with:
         python-version: 3.12
 
-    - name: Install dependencies
-      run: |
-        uv sync --dev --locked
+    # Cache pip packages (your step)
+    - name: Cache pip
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
 
-    - name: Test with pytest
+    # Install dependencies
+    - name: Install dependencies
+      run: uv sync --dev --locked
+
+    # Install your package so imports work in tests
+    - name: Install package
+      run: pip install -e src/
+
+    # Optional: Lint code
+    - name: Lint code
       run: |
-        uv run pytest -v
+        pip install ruff
+        ruff check src/
+
+    # Run tests
+    - name: Run tests
+      run: uv run pytest -v
