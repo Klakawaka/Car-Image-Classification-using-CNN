@@ -47,7 +47,9 @@ class TestTrainingData:
     def test_train_dataset_class_mapping(self):
         """Test that class to index mapping is correct."""
         dataset = CarImageDataset(Path(_PATH_TRAIN_DATA))
-        assert len(dataset.class_to_idx) == EXPECTED_NUM_CLASSES, "Class to index mapping should match number of classes"
+        assert (
+            len(dataset.class_to_idx) == EXPECTED_NUM_CLASSES
+        ), "Class to index mapping should match number of classes"
         for class_name in EXPECTED_CLASSES:
             assert class_name in dataset.class_to_idx, f"Class '{class_name}' should be in class_to_idx mapping"
         assert all(
@@ -243,9 +245,7 @@ class TestDatasetConsistency:
 
         for class_name, count in class_counts.items():
             assert count > 0, f"Class '{class_name}' should have at least some samples, got {count}"
-            assert count < len(
-                dataset
-            ), f"Class '{class_name}' should not have all samples ({count} vs {len(dataset)})"
+            assert count < len(dataset), f"Class '{class_name}' should not have all samples ({count} vs {len(dataset)})"
 
     def test_no_duplicate_paths(self):
         """Test that there are no duplicate image paths in the dataset."""

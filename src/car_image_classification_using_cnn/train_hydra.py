@@ -49,9 +49,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     if train_dataset.classes != test_dataset.classes:
-        raise ValueError(
-            f"Train/Test class mismatch!\nTrain: {train_dataset.classes}\nTest: {test_dataset.classes}"
-        )
+        raise ValueError(f"Train/Test class mismatch!\nTrain: {train_dataset.classes}\nTest: {test_dataset.classes}")
 
     train_loader = DataLoader(
         train_dataset,

@@ -34,6 +34,7 @@ class CarImageDataset(Dataset):
         self.data_path = Path(data_path)
         self.image_size = image_size
 
+        self.transform: transforms.Compose
         if transform is None:
             self.transform = transforms.Compose(
                 [
@@ -46,9 +47,9 @@ class CarImageDataset(Dataset):
             self.transform = transform
 
         # Build dataset index
-        self.samples = []
-        self.class_to_idx = {}
-        self.classes = []
+        self.samples: list[tuple[Path, int]] = []
+        self.class_to_idx: dict[str, int] = {}
+        self.classes: list[str] = []
 
         if self.data_path.exists():
             self._build_dataset()
@@ -99,14 +100,9 @@ class CarImageDataset(Dataset):
         """
         img_path, label = self.samples[index]
 
-        # Load image
         image = Image.open(img_path).convert("RGB")
-
-        # Apply transformations
-        if self.transform:
-            image = self.transform(image)
-
-        return image, label
+        image_tensor = self.transform(image)
+        return image_tensor, int(label)
 
     def preprocess(self, output_folder: Path) -> None:
         """

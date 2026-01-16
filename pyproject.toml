@@ -56,6 +56,7 @@ dev = [
   "pytest==8.3.4",
   "pytest-cov>=6.3.0",
   "ruff==0.1.3",
+  "types-tqdm>=4.67.0.20250809",
 ]
 
 [tool.uv]
@@ -89,3 +90,6 @@ omit = [
     "notebooks/*",
     "*/tmp*/*",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
