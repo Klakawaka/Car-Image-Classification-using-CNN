@@ -1,4 +1,4 @@
-name: CI - Tests, Lint, Cache
+name: CI - Tests, Lint, Cache (M17)
 
 on:
   push:
@@ -8,28 +8,44 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12']
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Python with pip cache
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.12
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: uv sync --dev --locked
+      - name: Install uv
+        run: pip install uv
 
-    - name: Install package in editable mode
-      run: pip install -e src/
+      - name: Install dependencies (cached)
+        run: uv sync --dev --locked
 
-    - name: Lint code
-      run: |
-        pip install ruff
-        ruff check src/
+      # CPU-only PyTorch install (safe for CI)
+      - name: Install PyTorch
+        run: |
+          uv pip install torch torchvision torchaudio \
+            --index-url https://download.pytorch.org/whl/cpu
 
-    - name: Run tests
-      run: uv run pytest -v
+      - name: Install package in editable mode
+        run: pip install -e .
+
+      - name: Lint with Ruff
+        run: |
+          pip install ruff
+          ruff check src/
+
+      - name: Run tests
+        run: uv run pytest -v
