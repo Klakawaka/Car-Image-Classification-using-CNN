@@ -1,0 +1,22 @@
+name: Model Registry Change Workflow 
+
+on:
+  push:
+    paths:
+      - 'models/**'
+  pull_request:
+    paths:
+      - 'models/**'
+
+jobs:
+  model-registry-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Model registry change detected
+        run: |
+          echo "Model registry (models/) has changed."
+          echo "This is where model validation, versioning, or deployment would run."
