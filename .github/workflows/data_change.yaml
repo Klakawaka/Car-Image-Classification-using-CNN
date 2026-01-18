@@ -18,5 +18,5 @@ jobs:
 
       - name: Data change detected
         run: |
-          echo "Data in raw/ has changed."
+          echo "Data in raw folder has changed."
           echo "This is where data validation or preprocessing would run."
