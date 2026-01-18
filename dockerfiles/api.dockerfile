@@ -31,5 +31,8 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev
 # Expose port for FastAPI
 EXPOSE 8000
 
+# Set working directory to src for running the app
+WORKDIR /app/src
+
 # Run FastAPI server
-ENTRYPOINT ["uv", "run", "uvicorn", "src.car_image_classification_using_cnn.api:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
