@@ -1,0 +1,22 @@
+name: Data Change Workflow 
+
+on:
+  push:
+    paths:
+      - 'raw/**'
+  pull_request:
+    paths:
+      - 'raw/**'
+
+jobs:
+  data-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Data change detected
+        run: |
+          echo "Data in raw folder has changed."
+          echo "This is where data validation or preprocessing would run."
