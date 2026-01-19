@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+import os
 
 import torch
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -27,8 +28,27 @@ async def lifespan(app: FastAPI):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    project_root = Path(__file__).parent.parent
-    model_path = project_root / "models" / "best_model.pth"
+    # Support local and GCS paths
+    model_path_env = os.getenv("MODEL_PATH", "models/best_model.pth")
+
+    if model_path_env.startswith("gs://"):
+        from google.cloud import storage
+
+        bucket_name = model_path_env.split("/")[2]
+        blob_path = "/".join(model_path_env.split("/")[3:])
+
+        print(f"Downloading model from GCS: {model_path_env}")
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+
+        local_model_path = Path("/tmp/best_model.pth")
+        blob.download_to_filename(str(local_model_path))
+        model_path = local_model_path
+        print("Model downloaded from GCS successfully")
+    else:
+        project_root = Path(__file__).parent.parent
+        model_path = project_root / model_path_env
 
     if not model_path.exists():
         raise FileNotFoundError(f"Model file not found at {model_path}")
