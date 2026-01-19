@@ -21,7 +21,7 @@ dependencies = [
   "fastapi==0.115.6",
   "pillow>=12.1.0",
   "tqdm>=4.67.1",
-  "typer==0.15.1",
+  "typer==0.21.1",
   "uvicorn==0.34.0",
   "numpy<2",
   # Apple Silicon (M2/M4): modern PyTorch
