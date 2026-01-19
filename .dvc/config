@@ -1,4 +1,6 @@
 [core]
-    remote = storage
+    remote = myremote
 ['remote "storage"']
     url = gdrive://1AT5ftI4oc3ado4lZtgPqsp_6HTFJrlTV
+['remote "myremote"']
+    url = gs://dtu-mlops-car-classification_bucket
