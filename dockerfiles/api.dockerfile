@@ -13,9 +13,8 @@ WORKDIR /app
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
-# Install dependencies (cached layer if dependencies don't change)
-# Use --no-dev to skip dev dependencies, remove --frozen to allow platform resolution
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev --no-install-project
+# Install dependencies (without BuildKit cache mount)
+RUN uv sync --no-dev --no-install-project
 
 # Copy source code and required files
 COPY src/ src/
@@ -23,10 +22,7 @@ COPY README.md README.md
 COPY LICENSE LICENSE
 
 # Install the project itself
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev
-
-# Note: Model weights should be mounted as a volume at runtime
-# Example: docker run -v /path/to/models:/app/models api:latest
+RUN uv sync --no-dev
 
 # Expose port for FastAPI
 EXPOSE 8000
