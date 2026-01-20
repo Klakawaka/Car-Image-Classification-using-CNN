@@ -13,9 +13,8 @@ WORKDIR /app
 COPY uv.lock uv.lock
 COPY pyproject.toml pyproject.toml
 
-# Install dependencies (cached layer if dependencies don't change)
-# Use --no-dev to skip dev dependencies, remove --frozen to allow platform resolution
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev --no-install-project
+# Install dependencies 
+RUN uv sync --no-dev --no-install-project
 
 # Copy source code and required files
 COPY src/ src/
@@ -23,10 +22,9 @@ COPY README.md README.md
 COPY LICENSE LICENSE
 
 # Install the project itself
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --no-dev
+RUN uv sync --no-dev
 
 # Copy data directory (training and test data)
-# Note: In production, you might want to mount this as a volume instead
 COPY raw/ raw/
 
 # Create models directory for output
