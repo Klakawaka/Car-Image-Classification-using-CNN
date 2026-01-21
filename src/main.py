@@ -13,6 +13,7 @@ from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, HTMLResponse
 from PIL import Image
 from torchvision import transforms
+from prometheus_client import CollectorRegistry, Counter, Histogram, Summary, make_asgi_app
 
 from car_image_classification_using_cnn.model import CarClassificationCNN
 
@@ -23,6 +24,37 @@ transform: transforms.Compose
 class_names: list[str]
 
 PREDICTION_DB = Path("prediction_database.csv")
+
+# Prometheus metrics stuff
+METRICS_REGISTRY = CollectorRegistry()
+
+request_counter = Counter("prediction_requests_total", "Total number of prediction requests", registry=METRICS_REGISTRY)
+
+batch_request_counter = Counter(
+    "batch_prediction_requests_total", "Total number of batch prediction requests", registry=METRICS_REGISTRY
+)
+
+error_counter = Counter("prediction_errors_total", "Total number of prediction errors", registry=METRICS_REGISTRY)
+
+request_latency = Histogram(
+    "prediction_request_duration_seconds", "Time spent processing prediction request", registry=METRICS_REGISTRY
+)
+
+batch_latency = Histogram(
+    "batch_prediction_request_duration_seconds",
+    "Time spent processing batch prediction request",
+    registry=METRICS_REGISTRY,
+)
+
+confidence_summary = Summary(
+    "prediction_confidence", "Distribution of prediction confidence scores", registry=METRICS_REGISTRY
+)
+
+image_brightness_summary = Summary(
+    "image_brightness", "Distribution of image brightness values", registry=METRICS_REGISTRY
+)
+
+image_contrast_summary = Summary("image_contrast", "Distribution of image contrast values", registry=METRICS_REGISTRY)
 
 
 def save_prediction_to_db(
@@ -115,6 +147,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Mount prometheus metrics endpoint with custom registry
+app.mount("/metrics", make_asgi_app(registry=METRICS_REGISTRY))
+
 
 @app.get("/")
 def read_root() -> dict[str, str]:
@@ -141,78 +176,33 @@ async def predict(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
 ) -> JSONResponse:
+    request_counter.inc()
+
     if model is None:
+        error_counter.inc()
         raise HTTPException(status_code=500, detail="Model not loaded")
 
     if not image.content_type or not image.content_type.startswith("image/"):
+        error_counter.inc()
         raise HTTPException(status_code=400, detail="Uploaded file must be an image")
 
     try:
         image_data = await image.read()
         img = Image.open(BytesIO(image_data)).convert("RGB")
     except Exception as e:
+        error_counter.inc()
         raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
-    try:
-        img_array = np.array(img, dtype=np.float32)
-        mean_brightness = float(img_array.mean())
-        std_brightness = float(img_array.std())
-        contrast = float(img_array.max() - img_array.min())
-
-        img_tensor = transform(img).unsqueeze(0).to(device)
-
-        with torch.no_grad():
-            outputs = model(img_tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            confidence, predicted_idx = torch.max(probabilities, 1)
-
-        predicted_class_index = int(predicted_idx.item())
-        predicted_class = class_names[predicted_class_index]
-        confidence_score = float(confidence.item())
-
-        all_probabilities = {
-            class_name: float(prob) for class_name, prob in zip(class_names, probabilities[0].cpu().numpy())
-        }
-
-        background_tasks.add_task(
-            save_prediction_to_db,
-            predicted_class,
-            confidence_score,
-            mean_brightness,
-            std_brightness,
-            contrast,
-        )
-
-        return JSONResponse(
-            content={
-                "predicted_class": predicted_class,
-                "confidence": confidence_score,
-                "all_probabilities": all_probabilities,
-            }
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
-
-
-@app.post("/predict_batch")
-async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
-    if model is None:
-        raise HTTPException(status_code=500, detail="Model not loaded")
-
-    if len(images) > 10:
-        raise HTTPException(status_code=400, detail="Maximum 10 images allowed per batch")
-
-    predictions: list[dict[str, Any]] = []
-
-    for idx, image in enumerate(images):
-        if not image.content_type or not image.content_type.startswith("image/"):
-            predictions.append({"index": idx, "filename": image.filename, "error": "Invalid image file"})
-            continue
-
+    with request_latency.time():
         try:
-            image_data = await image.read()
-            img = Image.open(BytesIO(image_data)).convert("RGB")
+            img_array = np.array(img, dtype=np.float32)
+            mean_brightness = float(img_array.mean())
+            std_brightness = float(img_array.std())
+            contrast = float(img_array.max() - img_array.min())
+
+            # Track image metrics
+            image_brightness_summary.observe(mean_brightness)
+            image_contrast_summary.observe(contrast)
 
             img_tensor = transform(img).unsqueeze(0).to(device)
 
@@ -225,19 +215,88 @@ async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
             predicted_class = class_names[predicted_class_index]
             confidence_score = float(confidence.item())
 
-            predictions.append(
-                {
-                    "index": idx,
-                    "filename": image.filename,
+            # Track confidence metric
+            confidence_summary.observe(confidence_score)
+
+            all_probabilities = {
+                class_name: float(prob) for class_name, prob in zip(class_names, probabilities[0].cpu().numpy())
+            }
+
+            background_tasks.add_task(
+                save_prediction_to_db,
+                predicted_class,
+                confidence_score,
+                mean_brightness,
+                std_brightness,
+                contrast,
+            )
+
+            return JSONResponse(
+                content={
                     "predicted_class": predicted_class,
                     "confidence": confidence_score,
+                    "all_probabilities": all_probabilities,
                 }
             )
 
         except Exception as e:
-            predictions.append({"index": idx, "filename": image.filename, "error": str(e)})
+            error_counter.inc()
+            raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
-    return JSONResponse(content={"predictions": predictions, "total": len(images)})
+
+@app.post("/predict_batch")
+async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
+    batch_request_counter.inc()
+
+    if model is None:
+        error_counter.inc()
+        raise HTTPException(status_code=500, detail="Model not loaded")
+
+    if len(images) > 10:
+        error_counter.inc()
+        raise HTTPException(status_code=400, detail="Maximum 10 images allowed per batch")
+
+    with batch_latency.time():
+        predictions: list[dict[str, Any]] = []
+
+        for idx, image in enumerate(images):
+            if not image.content_type or not image.content_type.startswith("image/"):
+                predictions.append({"index": idx, "filename": image.filename, "error": "Invalid image file"})
+                error_counter.inc()
+                continue
+
+            try:
+                image_data = await image.read()
+                img = Image.open(BytesIO(image_data)).convert("RGB")
+
+                img_tensor = transform(img).unsqueeze(0).to(device)
+
+                with torch.no_grad():
+                    outputs = model(img_tensor)
+                    probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                    confidence, predicted_idx = torch.max(probabilities, 1)
+
+                predicted_class_index = int(predicted_idx.item())
+                predicted_class = class_names[predicted_class_index]
+                confidence_score = float(confidence.item())
+
+                # Track confidence metric for batch predictions too
+                confidence_summary.observe(confidence_score)
+
+                predictions.append(
+                    {
+                        "index": idx,
+                        "filename": image.filename,
+                        "predicted_class": predicted_class,
+                        "confidence": confidence_score,
+                    }
+                )
+
+            except Exception as e:
+                predictions.append({"index": idx, "filename": image.filename, "error": str(e)})
+                error_counter.inc()
+
+        return JSONResponse(content={"predictions": predictions, "total": len(images)})
 
 
 @app.get("/monitoring", response_class=HTMLResponse)
