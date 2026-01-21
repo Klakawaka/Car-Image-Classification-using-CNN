@@ -31,13 +31,16 @@ def test(ctx: Context) -> None:
 def docker_build(ctx: Context, progress: str = "plain") -> None:
     """Build docker images."""
     ctx.run(
-        f"docker build -t train:latest . -f dockerfiles/train.dockerfile --progress={progress}",
+        f"docker build --platform linux/amd64 -t train:latest . -f dockerfiles/train.dockerfile --progress={progress}",
         echo=True,
         pty=not WINDOWS,
     )
     ctx.run(
-        f"docker build -t api:latest . -f dockerfiles/api.dockerfile --progress={progress}", echo=True, pty=not WINDOWS
+        f"docker build --platform linux/amd64 -t api:latest . -f dockerfiles/api.dockerfile --progress={progress}",
+        echo=True,
+        pty=not WINDOWS
     )
+ 
 
 
 # Documentation commands

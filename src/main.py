@@ -201,47 +201,15 @@ async def predict(
         error_counter.inc()
         raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
-    try:
-        img_array = np.array(img, dtype=np.float32)
-        mean_brightness = float(img_array.mean())
-        std_brightness = float(img_array.std())
-        contrast = float(img_array.max() - img_array.min())
-        max_brightness = float(img_array.max())
-        min_brightness = float(img_array.min())
-
-        img_tensor = transform(img).unsqueeze(0).to(device)
-
-        with torch.no_grad():
-            outputs = model(img_tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            confidence, predicted_idx = torch.max(probabilities, 1)
-
-        predicted_class_index = int(predicted_idx.item())
-        predicted_class = class_names[predicted_class_index]
-        confidence_score = float(confidence.item())
-
-        all_probabilities = {
-            class_name: float(prob) for class_name, prob in zip(class_names, probabilities[0].cpu().numpy())
-        }
-
-        background_tasks.add_task(
-            save_prediction_to_db,
-            predicted_class,
-            confidence_score,
-            mean_brightness,
-            std_brightness,
-            contrast,
-            max_brightness,
-            min_brightness,
-        )
     with request_latency.time():
         try:
             img_array = np.array(img, dtype=np.float32)
             mean_brightness = float(img_array.mean())
             std_brightness = float(img_array.std())
             contrast = float(img_array.max() - img_array.min())
+            max_brightness = float(img_array.max())
+            min_brightness = float(img_array.min())
 
-            # Track image metrics
             image_brightness_summary.observe(mean_brightness)
             image_contrast_summary.observe(contrast)
 
@@ -256,7 +224,6 @@ async def predict(
             predicted_class = class_names[predicted_class_index]
             confidence_score = float(confidence.item())
 
-            # Track confidence metric
             confidence_summary.observe(confidence_score)
 
             all_probabilities = {
@@ -270,6 +237,8 @@ async def predict(
                 mean_brightness,
                 std_brightness,
                 contrast,
+                max_brightness,
+                min_brightness,
             )
 
             return JSONResponse(
