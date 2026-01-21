@@ -32,11 +32,9 @@ def main(cfg: DictConfig) -> None:
     device = resolve_device(cfg.training.device)
     print(f"Using device: {device}")
 
-    # Output dir (Hydra changes working directory by default; make paths explicit)
     output_dir = Path(cfg.training.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Datasets
     train_dataset = CarImageDataset(
         data_path=Path(cfg.data.train_data_path),
         transform=get_transforms("train", tuple(cfg.data.image_size)),
@@ -66,7 +64,6 @@ def main(cfg: DictConfig) -> None:
         pin_memory=device.type in ("cuda", "mps"),
     )
 
-    # Model
     model = create_model(
         model_type=cfg.model.model_type,
         num_classes=len(train_dataset.classes),
