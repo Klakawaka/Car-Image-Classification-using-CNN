@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 import os
+import csv
+import pandas as pd
+import numpy as np
 
 import torch
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse, HTMLResponse
 from PIL import Image
 from torchvision import transforms
 
@@ -18,6 +22,23 @@ device: torch.device
 transform: transforms.Compose
 class_names: list[str]
 
+PREDICTION_DB = Path("prediction_database.csv")
+
+
+def save_prediction_to_db(
+    predicted_class: str, confidence: float, mean_brightness: float, std_brightness: float, contrast: float
+) -> None:
+    """Save prediction to database as background task."""
+    file_exists = PREDICTION_DB.exists()
+    
+    with open(PREDICTION_DB, "a", newline="") as f:
+        writer = csv.writer(f)
+        
+        if not file_exists:
+            writer.writerow(["time", "predicted_class", "confidence", "mean_brightness", "std_brightness", "contrast"])
+        
+        writer.writerow([datetime.now().isoformat(), predicted_class, confidence, mean_brightness, std_brightness, contrast])
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,7 +49,6 @@ async def lifespan(app: FastAPI):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Support local and GCS paths
     model_path_env = os.getenv("MODEL_PATH", "models/best_model.pth")
 
     if model_path_env.startswith("gs://"):
@@ -111,7 +131,7 @@ def get_classes() -> dict[str, list[str] | int]:
 
 
 @app.post("/predict")
-async def predict(image: UploadFile = File(...)) -> JSONResponse:
+async def predict(image: UploadFile = File(...), background_tasks: BackgroundTasks = None) -> JSONResponse:
     if model is None:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
@@ -125,6 +145,11 @@ async def predict(image: UploadFile = File(...)) -> JSONResponse:
         raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
     try:
+        img_array = np.array(img, dtype=np.float32)
+        mean_brightness = float(img_array.mean())
+        std_brightness = float(img_array.std())
+        contrast = float(img_array.max() - img_array.min())
+        
         img_tensor = transform(img).unsqueeze(0).to(device)
 
         with torch.no_grad():
@@ -138,6 +163,11 @@ async def predict(image: UploadFile = File(...)) -> JSONResponse:
         all_probabilities = {
             class_name: float(prob) for class_name, prob in zip(class_names, probabilities[0].cpu().numpy())
         }
+
+        if background_tasks:
+            background_tasks.add_task(
+                save_prediction_to_db, predicted_class, confidence_score, mean_brightness, std_brightness, contrast
+            )
 
         return JSONResponse(
             content={
@@ -193,6 +223,26 @@ async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
             predictions.append({"index": idx, "filename": image.filename, "error": str(e)})
 
     return JSONResponse(content={"predictions": predictions, "total": len(images)})
+
+
+@app.get("/monitoring", response_class=HTMLResponse)
+async def get_monitoring_report(n: int = 100):
+    from car_image_classification_using_cnn.drift_detection import extract_features_from_dataset, generate_drift_report
+    
+    reference_data = extract_features_from_dataset(Path("raw/train"), max_samples=n)
+    
+    if not PREDICTION_DB.exists():
+        raise HTTPException(status_code=404, detail="No predictions logged yet")
+    
+    current_data = pd.read_csv(PREDICTION_DB).tail(n)
+    
+    report_path = Path("monitoring_report.html")
+    generate_drift_report(reference_data, current_data, report_path)
+    
+    with open(report_path) as f:
+        html_content = f.read()
+    
+    return HTMLResponse(content=html_content, status_code=200)
 
 
 if __name__ == "__main__":
