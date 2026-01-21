@@ -205,3 +205,6 @@ github-actions-key.json
 !pyproject.toml
 !uv.lock
 !package.json
+
+# Exported models
+models/*.onnx
