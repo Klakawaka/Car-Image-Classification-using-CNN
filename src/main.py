@@ -63,6 +63,8 @@ def save_prediction_to_db(
     mean_brightness: float,
     std_brightness: float,
     contrast: float,
+    max_brightness: float = 0.0,
+    min_brightness: float = 0.0,
 ) -> None:
     """Save prediction to database as background task."""
     file_exists = PREDICTION_DB.exists()
@@ -71,11 +73,17 @@ def save_prediction_to_db(
         writer = csv.writer(f)
 
         if not file_exists:
-            writer.writerow(["time", "predicted_class", "confidence", "mean_brightness", "std_brightness", "contrast"])
+            writer.writerow([
+                "time", "predicted_class", "confidence", 
+                "mean_brightness", "std_brightness", "contrast",
+                "max_brightness", "min_brightness"
+            ])
 
-        writer.writerow(
-            [datetime.now().isoformat(), predicted_class, confidence, mean_brightness, std_brightness, contrast]
-        )
+        writer.writerow([
+            datetime.now().isoformat(), predicted_class, confidence, 
+            mean_brightness, std_brightness, contrast,
+            max_brightness, min_brightness
+        ])
 
 
 @asynccontextmanager
@@ -193,6 +201,39 @@ async def predict(
         error_counter.inc()
         raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
+    try:
+        img_array = np.array(img, dtype=np.float32)
+        mean_brightness = float(img_array.mean())
+        std_brightness = float(img_array.std())
+        contrast = float(img_array.max() - img_array.min())
+        max_brightness = float(img_array.max())
+        min_brightness = float(img_array.min())
+
+        img_tensor = transform(img).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            outputs = model(img_tensor)
+            probabilities = torch.nn.functional.softmax(outputs, dim=1)
+            confidence, predicted_idx = torch.max(probabilities, 1)
+
+        predicted_class_index = int(predicted_idx.item())
+        predicted_class = class_names[predicted_class_index]
+        confidence_score = float(confidence.item())
+
+        all_probabilities = {
+            class_name: float(prob) for class_name, prob in zip(class_names, probabilities[0].cpu().numpy())
+        }
+
+        background_tasks.add_task(
+            save_prediction_to_db,
+            predicted_class,
+            confidence_score,
+            mean_brightness,
+            std_brightness,
+            contrast,
+            max_brightness,
+            min_brightness,
+        )
     with request_latency.time():
         try:
             img_array = np.array(img, dtype=np.float32)
@@ -301,22 +342,129 @@ async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
 
 @app.get("/monitoring", response_class=HTMLResponse)
 async def get_monitoring_report(n: int = 100):
-    from car_image_classification_using_cnn.drift_detection import extract_features_from_dataset, generate_drift_report
+    try:
+        if not PREDICTION_DB.exists():
+            raise HTTPException(status_code=404, detail="No predictions logged yet")
 
-    reference_data = extract_features_from_dataset(Path("raw/train"), max_samples=n)
+        current_data_raw = pd.read_csv(PREDICTION_DB).tail(n)
+        
+        if len(current_data_raw) == 0:
+            raise HTTPException(status_code=404, detail="No predictions in database")
 
-    if not PREDICTION_DB.exists():
-        raise HTTPException(status_code=404, detail="No predictions logged yet")
+        current_data = pd.DataFrame({
+            'mean_brightness': current_data_raw['mean_brightness'],
+            'std_brightness': current_data_raw['std_brightness'],
+            'max_brightness': current_data_raw['max_brightness'],
+            'min_brightness': current_data_raw['min_brightness'],
+            'contrast': current_data_raw['contrast'],
+        })
+        
+        class_name_to_idx = {name: idx for idx, name in enumerate(class_names)}
+        current_data['label'] = current_data_raw['predicted_class'].map(class_name_to_idx)
 
-    current_data = pd.read_csv(PREDICTION_DB).tail(n)
+        train_data_path = Path("raw/train")
+        if not train_data_path.exists():
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Monitoring Report</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    .warning {{ background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+                    table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                    th {{ background-color: #4CAF50; color: white; }}
+                </style>
+            </head>
+            <body>
+                <h1>Monitoring Report</h1>
+                <div class="warning">
+                    <strong>⚠️ Warning:</strong> Training data not available at <code>{train_data_path}</code>.
+                    Showing statistics for recent predictions only.
+                </div>
+                <h2>Recent Predictions Summary ({len(current_data)} samples)</h2>
+                <table>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Mean</th>
+                        <th>Std</th>
+                        <th>Min</th>
+                        <th>Max</th>
+                    </tr>
+                    <tr>
+                        <td>Mean Brightness</td>
+                        <td>{current_data['mean_brightness'].mean():.2f}</td>
+                        <td>{current_data['mean_brightness'].std():.2f}</td>
+                        <td>{current_data['mean_brightness'].min():.2f}</td>
+                        <td>{current_data['mean_brightness'].max():.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Std Brightness</td>
+                        <td>{current_data['std_brightness'].mean():.2f}</td>
+                        <td>{current_data['std_brightness'].std():.2f}</td>
+                        <td>{current_data['std_brightness'].min():.2f}</td>
+                        <td>{current_data['std_brightness'].max():.2f}</td>
+                    </tr>
+                    <tr>
+                        <td>Contrast</td>
+                        <td>{current_data['contrast'].mean():.2f}</td>
+                        <td>{current_data['contrast'].std():.2f}</td>
+                        <td>{current_data['contrast'].min():.2f}</td>
+                        <td>{current_data['contrast'].max():.2f}</td>
+                    </tr>
+                </table>
+                <h2>Class Distribution</h2>
+                <table>
+                    <tr>
+                        <th>Class</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
+                    </tr>
+            """
+            
+            for class_name, idx in class_name_to_idx.items():
+                count = (current_data['label'] == idx).sum()
+                percentage = (count / len(current_data)) * 100
+                html_content += f"""
+                    <tr>
+                        <td>{class_name}</td>
+                        <td>{count}</td>
+                        <td>{percentage:.1f}%</td>
+                    </tr>
+                """
+            
+            html_content += """
+                </table>
+            </body>
+            </html>
+            """
+            
+            return HTMLResponse(content=html_content, status_code=200)
 
-    report_path = Path("monitoring_report.html")
-    generate_drift_report(reference_data, current_data, report_path)
+        from car_image_classification_using_cnn.drift_detection import extract_features_from_dataset, generate_drift_report
 
-    with open(report_path) as f:
-        html_content = f.read()
+        print(f"Extracting features from {train_data_path}...")
+        reference_data = extract_features_from_dataset(train_data_path, max_samples=n)
+        print(f"Extracted {len(reference_data)} reference samples")
 
-    return HTMLResponse(content=html_content, status_code=200)
+        report_path = Path("monitoring_report.html")
+        print(f"Generating drift report...")
+        generate_drift_report(reference_data, current_data, report_path)
+        print(f"Report generated at {report_path}")
+
+        with open(report_path) as f:
+            html_content = f.read()
+
+        return HTMLResponse(content=html_content, status_code=200)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_detail = f"Failed to generate monitoring report: {str(e)}\n{traceback.format_exc()}"
+        print(error_detail)
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 if __name__ == "__main__":
