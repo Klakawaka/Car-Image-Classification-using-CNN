@@ -55,6 +55,7 @@ dependencies = [
   "ml-dtypes>=0.4.1",
   "rich>=14.2.0",
   "prometheus-client>=0.24.1",
+  "streamlit>=1.53.0",
 ]
 
 [dependency-groups]

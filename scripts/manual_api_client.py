@@ -69,14 +69,14 @@ def test_monitoring_endpoint(
 
         if response.status_code == 200:
             console.print("[green]✓ Monitoring report generated successfully![/green]")
-            
+
             # Save the HTML report
             output_path = Path("monitoring_report_test.html")
             with open(output_path, "w") as f:
                 f.write(response.text)
-            
+
             console.print(f"[green]Report saved to: {output_path}[/green]")
-            console.print(f"[yellow]Open it in your browser to view the drift analysis[/yellow]")
+            console.print("[yellow]Open it in your browser to view the drift analysis[/yellow]")
         elif response.status_code == 404:
             console.print("[yellow]⚠ No predictions logged yet. Send some predictions first.[/yellow]")
         else:
