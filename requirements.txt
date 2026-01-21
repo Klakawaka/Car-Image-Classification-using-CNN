@@ -7,7 +7,7 @@ numpy<2
 pillow>=12.1.0
 
 # FastAPI and Web
-fastapi==0.115.6
+fastapi==0.128.0
 uvicorn==0.34.0
 python-multipart>=0.0.21
 requests>=2.32.5
