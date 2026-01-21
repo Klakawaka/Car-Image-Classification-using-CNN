@@ -26,18 +26,24 @@ PREDICTION_DB = Path("prediction_database.csv")
 
 
 def save_prediction_to_db(
-    predicted_class: str, confidence: float, mean_brightness: float, std_brightness: float, contrast: float
+    predicted_class: str,
+    confidence: float,
+    mean_brightness: float,
+    std_brightness: float,
+    contrast: float,
 ) -> None:
     """Save prediction to database as background task."""
     file_exists = PREDICTION_DB.exists()
-    
+
     with open(PREDICTION_DB, "a", newline="") as f:
         writer = csv.writer(f)
-        
+
         if not file_exists:
             writer.writerow(["time", "predicted_class", "confidence", "mean_brightness", "std_brightness", "contrast"])
-        
-        writer.writerow([datetime.now().isoformat(), predicted_class, confidence, mean_brightness, std_brightness, contrast])
+
+        writer.writerow(
+            [datetime.now().isoformat(), predicted_class, confidence, mean_brightness, std_brightness, contrast]
+        )
 
 
 @asynccontextmanager
@@ -131,7 +137,10 @@ def get_classes() -> dict[str, list[str] | int]:
 
 
 @app.post("/predict")
-async def predict(image: UploadFile = File(...), background_tasks: BackgroundTasks = None) -> JSONResponse:
+async def predict(
+    background_tasks: BackgroundTasks,
+    image: UploadFile = File(...),
+) -> JSONResponse:
     if model is None:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
@@ -149,7 +158,7 @@ async def predict(image: UploadFile = File(...), background_tasks: BackgroundTas
         mean_brightness = float(img_array.mean())
         std_brightness = float(img_array.std())
         contrast = float(img_array.max() - img_array.min())
-        
+
         img_tensor = transform(img).unsqueeze(0).to(device)
 
         with torch.no_grad():
@@ -157,17 +166,22 @@ async def predict(image: UploadFile = File(...), background_tasks: BackgroundTas
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             confidence, predicted_idx = torch.max(probabilities, 1)
 
-        predicted_class = class_names[predicted_idx.item()]
-        confidence_score = confidence.item()
+        predicted_class_index = int(predicted_idx.item())
+        predicted_class = class_names[predicted_class_index]
+        confidence_score = float(confidence.item())
 
         all_probabilities = {
             class_name: float(prob) for class_name, prob in zip(class_names, probabilities[0].cpu().numpy())
         }
 
-        if background_tasks:
-            background_tasks.add_task(
-                save_prediction_to_db, predicted_class, confidence_score, mean_brightness, std_brightness, contrast
-            )
+        background_tasks.add_task(
+            save_prediction_to_db,
+            predicted_class,
+            confidence_score,
+            mean_brightness,
+            std_brightness,
+            contrast,
+        )
 
         return JSONResponse(
             content={
@@ -207,8 +221,9 @@ async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
                 probabilities = torch.nn.functional.softmax(outputs, dim=1)
                 confidence, predicted_idx = torch.max(probabilities, 1)
 
-            predicted_class = class_names[predicted_idx.item()]
-            confidence_score = confidence.item()
+            predicted_class_index = int(predicted_idx.item())
+            predicted_class = class_names[predicted_class_index]
+            confidence_score = float(confidence.item())
 
             predictions.append(
                 {
@@ -228,20 +243,20 @@ async def predict_batch(images: list[UploadFile] = File(...)) -> JSONResponse:
 @app.get("/monitoring", response_class=HTMLResponse)
 async def get_monitoring_report(n: int = 100):
     from car_image_classification_using_cnn.drift_detection import extract_features_from_dataset, generate_drift_report
-    
+
     reference_data = extract_features_from_dataset(Path("raw/train"), max_samples=n)
-    
+
     if not PREDICTION_DB.exists():
         raise HTTPException(status_code=404, detail="No predictions logged yet")
-    
+
     current_data = pd.read_csv(PREDICTION_DB).tail(n)
-    
+
     report_path = Path("monitoring_report.html")
     generate_drift_report(reference_data, current_data, report_path)
-    
+
     with open(report_path) as f:
         html_content = f.read()
-    
+
     return HTMLResponse(content=html_content, status_code=200)
 
 

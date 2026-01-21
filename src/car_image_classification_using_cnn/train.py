@@ -19,6 +19,7 @@ load_dotenv()
 
 try:
     import wandb
+
     WANDB_AVAILABLE = True
 except ImportError:
     WANDB_AVAILABLE = False
@@ -60,15 +61,19 @@ def train_one_epoch(
         pbar.set_postfix({"loss": loss.item(), "acc": 100.0 * correct / total})
 
         if batch_idx % 10 == 0:
-            logger.debug(f"Batch {batch_idx}/{len(train_loader)}: loss={loss.item():.4f}, acc={100.0 * correct / total:.2f}%")
-            
+            logger.debug(
+                f"Batch {batch_idx}/{len(train_loader)}: loss={loss.item():.4f}, acc={100.0 * correct / total:.2f}%"
+            )
+
             # Log to wandb every 10 batches
             if use_wandb and WANDB_AVAILABLE:
-                wandb.log({
-                    "batch": epoch * len(train_loader) + batch_idx,
-                    "train_loss_step": loss.item(),
-                    "train_acc_step": 100.0 * correct / total,
-                })
+                wandb.log(
+                    {
+                        "batch": epoch * len(train_loader) + batch_idx,
+                        "train_loss_step": loss.item(),
+                        "train_acc_step": 100.0 * correct / total,
+                    }
+                )
 
     epoch_loss = running_loss / total
     epoch_acc = 100.0 * correct / total
@@ -118,7 +123,9 @@ def train(
     weight_decay: float = typer.Option(1e-4, help="Weight decay for regularization"),
     output_dir: Path = typer.Option("models", help="Directory to save model checkpoints"),
     device: str = typer.Option("auto", help="Device to train on: 'cpu', 'cuda', 'mps', or 'auto' (auto-detect)"),
-    profile_run: bool = typer.Option(False, help="Enable profiling for performance analysis (profiles 30 batches and exits)"),
+    profile_run: bool = typer.Option(
+        False, help="Enable profiling for performance analysis (profiles 30 batches and exits)"
+    ),
     use_wandb: bool = typer.Option(False, help="Enable Weights & Biases logging"),
     wandb_project: str = typer.Option("car-classification", help="W&B project name"),
     wandb_entity: str = typer.Option(None, help="W&B entity (team) name"),
@@ -148,6 +155,9 @@ def train(
     print("=" * 70)
     print("CAR IMAGE CLASSIFICATION - TRAINING")
     print("=" * 70)
+
+    run_id: str | None = None
+    run_name: str | None = None
 
     # Initialize Weights & Biases
     if use_wandb:
@@ -179,8 +189,16 @@ def train(
                         "test_data_path": str(test_data_path),
                     },
                 )
-                logger.info(f"W&B Run: {wandb.run.name}")
-                print(f"  ✓ Weights & Biases initialized: {wandb.run.name}")
+
+                if wandb.run is not None:
+                    run_id = wandb.run.id
+                    run_name = wandb.run.name
+                    logger.info(f"W&B Run: {run_name}")
+                    print(f"  ✓ Weights & Biases initialized: {run_name}")
+                else:
+                    logger.warning("wandb.init() completed but wandb.run is None; disabling artifact logging.")
+                    print("Warning: wandb.run is None; disabling artifact logging.")
+                    # keep use_wandb True for wandb.log/watch, but artifacts need run_id
 
     # Device selection
     if device == "auto":
@@ -364,10 +382,10 @@ def train(
             logger.info(f"Saved best model (val_acc: {val_acc:.2f}%)")
             print(f"  ✓ Saved best model (val_acc: {val_acc:.2f}%)")
 
-            # Log best model as artifact to W&B
-            if use_wandb and WANDB_AVAILABLE:
+            # Log best model as artifact to W&B (only if we have a run_id)
+            if use_wandb and WANDB_AVAILABLE and run_id is not None:
                 artifact = wandb.Artifact(
-                    name=f"model-{wandb.run.id}",
+                    name=f"model-{run_id}",
                     type="model",
                     description=f"Best model at epoch {epoch} with val_acc {val_acc:.2f}%",
                     metadata={
@@ -376,7 +394,7 @@ def train(
                         "val_loss": val_loss,
                         "train_acc": train_acc,
                         "train_loss": train_loss,
-                    }
+                    },
                 )
                 artifact.add_file(str(best_model_path))
                 wandb.log_artifact(artifact)
@@ -412,6 +430,7 @@ def train(
     if use_wandb and WANDB_AVAILABLE:
         wandb.finish()
         logger.info("Closed Weights & Biases connection")
+
 
 if __name__ == "__main__":
     typer.run(train)
