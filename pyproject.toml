@@ -54,6 +54,7 @@ dependencies = [
   "bentoml>=1.4.33",
   "ml-dtypes>=0.4.1",
   "rich>=14.2.0",
+  "prometheus-client>=0.24.1",
 ]
 
 [dependency-groups]
