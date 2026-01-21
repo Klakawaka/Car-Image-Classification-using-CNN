@@ -62,7 +62,6 @@ def train_one_epoch(
         if batch_idx % 10 == 0:
             logger.debug(f"Batch {batch_idx}/{len(train_loader)}: loss={loss.item():.4f}, acc={100.0 * correct / total:.2f}%")
             
-            # Log to wandb every 10 batches
             if use_wandb and WANDB_AVAILABLE:
                 wandb.log({
                     "batch": epoch * len(train_loader) + batch_idx,
@@ -137,7 +136,6 @@ def train(
     Example:
         uv run python -m car_image_classification_using_cnn.train --num-epochs 20 --batch-size 64 --use-wandb
     """
-    # Setup logging
     log_file = Path(output_dir) / "training.log"
     setup_logger(log_file=log_file, level=log_level)
 
@@ -149,7 +147,6 @@ def train(
     print("CAR IMAGE CLASSIFICATION - TRAINING")
     print("=" * 70)
 
-    # Initialize Weights & Biases
     if use_wandb:
         if not WANDB_AVAILABLE:
             logger.warning("wandb is not installed. Install it with: uv add wandb")
@@ -182,7 +179,6 @@ def train(
                 logger.info(f"W&B Run: {wandb.run.name}")
                 print(f"  ✓ Weights & Biases initialized: {wandb.run.name}")
 
-    # Device selection
     if device == "auto":
         if torch.cuda.is_available():
             device_obj = torch.device("cuda")
@@ -223,7 +219,6 @@ def train(
     logger.info(f"Saving checkpoints to: {output_dir}")
     print(f"Saving checkpoints to: {output_dir}")
 
-    # Load datasets
     logger.info("Loading datasets...")
     print("\nLoading datasets...")
     try:
@@ -244,7 +239,6 @@ def train(
     print(f"  Test dataset: {len(test_dataset)} images")
     print(f"  Classes: {train_dataset.classes}")
 
-    # Create data loaders
     pin = device_obj.type in ("cuda", "mps")
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=pin)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=pin)
@@ -254,7 +248,6 @@ def train(
     print(f"  Train batches: {len(train_loader)}")
     print(f"  Test batches: {len(test_loader)}")
 
-    # Create model
     logger.info(f"Creating {model_type} model...")
     print(f"\nCreating {model_type} model...")
     model = create_model(model_type=model_type, num_classes=len(train_dataset.classes), pretrained=pretrained)
@@ -267,7 +260,6 @@ def train(
     print(f"  Total parameters: {num_params:,}")
     print(f"  Trainable parameters: {num_trainable:,}")
 
-    # Log model architecture to W&B
     if use_wandb and WANDB_AVAILABLE:
         wandb.watch(model, log="all", log_freq=100)
 
@@ -275,7 +267,6 @@ def train(
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3, verbose=True)
 
-    # Profiling mode
     if profile_run:
         print("\n[Profiling enabled] Profiling 30 training batches...\n")
         logger.info("Starting profiling mode")
@@ -309,7 +300,6 @@ def train(
         print("\nProfiling finished. Exiting without full training.\n")
         return
 
-    # Training loop
     print("\n" + "=" * 70)
     print("TRAINING")
     print("=" * 70)
@@ -332,7 +322,6 @@ def train(
         print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.2f}%")
         print(f"  Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
 
-        # Log to wandb
         if use_wandb and WANDB_AVAILABLE:
             wandb.log(
                 {
@@ -345,7 +334,6 @@ def train(
                 }
             )
 
-        # Save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             torch.save(
@@ -364,7 +352,6 @@ def train(
             logger.info(f"Saved best model (val_acc: {val_acc:.2f}%)")
             print(f"  ✓ Saved best model (val_acc: {val_acc:.2f}%)")
 
-            # Log best model as artifact to W&B
             if use_wandb and WANDB_AVAILABLE:
                 artifact = wandb.Artifact(
                     name=f"model-{wandb.run.id}",
@@ -382,7 +369,6 @@ def train(
                 wandb.log_artifact(artifact)
                 logger.info(f"Logged model artifact to W&B: {artifact.name}")
 
-        # Save periodic checkpoints
         if epoch % 5 == 0:
             checkpoint_path = output_dir / f"checkpoint_epoch_{epoch}.pth"
             torch.save(
@@ -408,7 +394,6 @@ def train(
     print(f"Best validation accuracy: {best_val_acc:.2f}%")
     print(f"Best model saved to: {best_model_path}")
 
-    # Finalize W&B
     if use_wandb and WANDB_AVAILABLE:
         wandb.finish()
         logger.info("Closed Weights & Biases connection")
