@@ -1,3 +1,54 @@
+# Machine learning group 
+### Project structure
+
+CAR-IMAGE-CLASSIFICATION-USING-CNN
+├── Makefile              <- Automation commands (e.g. make train, make evaluate)
+├── README.md             <- Top-level README for developers and reviewers
+│
+├── .devcontainer/        <- Development container configuration
+├── .dvc/                 <- DVC metadata for data and model versioning
+├── .github/              <- GitHub configuration
+│   ├── agents/           <- AI / MLOps agent documentation
+│   │   └── dtu_mlops_agent.md
+│   ├── prompts/          <- Prompt templates
+│   ├── workflows/        <- GitHub Actions CI/CD workflows
+│   └── dependabot.yaml   <- Dependency update configuration
+│
+├── configs/              <- Configuration files (e.g. Hydra configs)
+├── dockerfiles/          <- Dockerfiles for containerized execution
+├── docs/                 <- Project documentation
+│
+├── models/               <- Trained and serialized models, checkpoints, and summaries
+├── notebooks/            <- Jupyter notebooks for exploration and experiments
+│                           Naming convention:
+│                           <number>-<initials>-<short-description>.ipynb //igen skal anvendes eller slettes
+│
+├── outputs/              <- Training outputs such as logs, metrics, and predictions //MÅSKE SKAL SLETTES
+│
+├── reports/              <- Project report and generated analysis
+│   ├── README.md         <- **EXAM REPORT**
+│   ├── figures/          <- Figures used in the report
+│   └── .gitkeep          <- Keeps the folder tracked by Git
+│
+├── src/                  <- Source code for the project
+│   └── car_image_classification_using_cnn/
+│       ├── __init__.py
+│       ├── data.py               <- Dataset loading and splitting
+│       ├── data_transform.py     <- Image preprocessing and transformations
+│       ├── drift_detection.py    <- Data drift detection logic
+│       ├── model.py              <- CNN model architecture
+│       ├── train.py              <- Model training script
+│       ├── train_hydra.py        <- Training with Hydra configuration
+│       ├── evaluate.py           <- Model evaluation
+│       ├── visualize.py          <- Visualization of results and metrics
+│       ├── logger.py             <- Logging utilities
+│       └── main.py               <- Main entry point for running the pipeline
+│
+├── tests/                <- Unit and integration tests
+├── .dockerignore         <- Files ignored by Docker
+├── .gitignore            <- Files ignored by Git
+
+
 # Project Description
 
 ## Goal
