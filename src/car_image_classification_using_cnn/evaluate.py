@@ -24,11 +24,9 @@ def evaluate(
         batch_size: Batch size for DataLoader
         device: Device to run evaluation on
     """
-    # Load checkpoint
     print(f"Loading model from {model_path}")
     checkpoint = torch.load(model_path, map_location=device, weights_only=False)
 
-    # Get class names from checkpoint
     classes = checkpoint.get("classes", None)
     if classes is None:
         raise ValueError("Checkpoint does not contain class information")
@@ -37,14 +35,12 @@ def evaluate(
     print(f"Number of classes: {num_classes}")
     print(f"Classes: {classes}")
 
-    # Create model and load weights
     model = create_model(num_classes=num_classes)
     model.load_state_dict(checkpoint["model_state_dict"])
     device_obj = torch.device(device)
     model = model.to(device_obj)
     model.eval()
 
-    # Load test dataset
     print(f"\nLoading test data from {test_data_dir}")
     test_dataset = CarImageDataset(data_path=test_data_dir, transform=get_transforms(mode="test"))
 
@@ -55,7 +51,6 @@ def evaluate(
 
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    # Evaluate
     print("\n" + "=" * 70)
     print("EVALUATION")
     print("=" * 70)
@@ -76,14 +71,12 @@ def evaluate(
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-            # Per-class accuracy
             for label, prediction in zip(labels, predicted):
                 class_name = classes[label]
                 class_total[class_name] += 1
                 if label == prediction:
                     class_correct[class_name] += 1
 
-    # Print results
     overall_accuracy = 100 * correct / total
     print(f"\nOverall Accuracy: {overall_accuracy:.2f}% ({correct}/{total})")
 
@@ -100,7 +93,6 @@ def evaluate(
     print("EVALUATION COMPLETE")
     print("=" * 70)
 
-    # Print checkpoint metadata if available
     if "epoch" in checkpoint:
         print(f"\nModel trained for {checkpoint['epoch']} epochs")
     if "val_acc" in checkpoint:
