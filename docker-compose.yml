@@ -1,0 +1,18 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend.dockerfile
+    ports:
+      - "4040:4040"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - BACKEND=http://backend:4040
+    depends_on:
+      - backend
