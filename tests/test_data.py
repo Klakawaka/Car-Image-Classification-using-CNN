@@ -254,7 +254,7 @@ class TestDatasetConsistency:
         image_paths = [str(img_path) for img_path, _ in dataset.samples]
         unique_paths = set(image_paths)
         assert len(image_paths) == len(unique_paths), (
-            f"Dataset should not have duplicate image paths. "
+            "Dataset should not have duplicate image paths. "
             f"Found {len(image_paths)} total, {len(unique_paths)} unique"
         )
 
