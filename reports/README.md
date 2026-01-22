@@ -14,7 +14,7 @@ We are group 140.
 
 > Answer:
 
-205430, s211150, s215884, 215810, s215813
+s205430, s211150, s215884, s215810, s215813
 
 
 ### Question 3
@@ -120,7 +120,7 @@ We implemented x tests, primarily covering data loading and the model. The focus
 >
 > Answer:
 
-Total code coverage is X ~85% (pytest-cov, src/ only, excluding tests and configs).
+Total code coverage is 82% (pytest-cov, src/ only).
 
 Even 100% coverage would not mean the code is error-free. Coverage only shows which lines were executed not whether the logic is correct, edge cases are handled, numerical stability holds, or the model generalizes to new data. ML-specific issues like data drift, preprocessing mismatches, or GPU/CPU differences often lie outside unit tests, so high coverage is good but must be combined with meaningful tests, experiment tracking, and monitoring at all time for it to be reliable.
 
