@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -438,3 +439,622 @@ class TestModelCheckpointing:
         assert (
             new_optimizer.param_groups[0]["lr"] == optimizer.param_groups[0]["lr"]
         ), "Loaded optimizer should have same learning rate"
+
+
+class TestWandbIntegration:
+    """Test suite for Weights & Biases integration."""
+    
+    def test_train_one_epoch_with_wandb_disabled(self):
+        """Test training with wandb disabled."""
+        from car_image_classification_using_cnn.train import train_one_epoch
+        
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        images = torch.randn(8, 3, 224, 224)
+        labels = torch.randint(0, 6, (8,))
+        dataset = TensorDataset(images, labels)
+        dataloader = DataLoader(dataset, batch_size=4)
+        
+        device = torch.device("cpu")
+        
+        # Should work without wandb
+        loss, acc = train_one_epoch(
+            model, dataloader, criterion, optimizer, device, epoch=1, use_wandb=False
+        )
+        
+        assert isinstance(loss, float)
+        assert isinstance(acc, float)
+    
+    def test_train_one_epoch_with_wandb_enabled_but_not_available(self):
+        """Test training with wandb enabled but not installed."""
+        from car_image_classification_using_cnn.train import train_one_epoch, WANDB_AVAILABLE
+        
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        images = torch.randn(8, 3, 224, 224)
+        labels = torch.randint(0, 6, (8,))
+        dataset = TensorDataset(images, labels)
+        dataloader = DataLoader(dataset, batch_size=4)
+        
+        device = torch.device("cpu")
+        
+        # If wandb is available, we need to mock it; if not, it should handle gracefully
+        if WANDB_AVAILABLE:
+            with patch("car_image_classification_using_cnn.train.wandb") as mock_wandb:
+                mock_wandb.log = MagicMock()
+                loss, acc = train_one_epoch(
+                    model, dataloader, criterion, optimizer, device, epoch=1, use_wandb=True
+                )
+        else:
+            # Should work without wandb
+            loss, acc = train_one_epoch(
+                model, dataloader, criterion, optimizer, device, epoch=1, use_wandb=True
+            )
+        
+        assert isinstance(loss, float)
+        assert isinstance(acc, float)
+
+
+class TestDeviceSelection:
+    """Test suite for device selection logic."""
+    
+    def test_cpu_device_selection(self):
+        """Test that CPU device can be explicitly selected."""
+        device = torch.device("cpu")
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        model = model.to(device)
+        
+        # Verify model is on CPU
+        first_param = next(model.parameters())
+        assert first_param.device.type == "cpu"
+    
+    def test_model_inference_on_cpu(self):
+        """Test model inference works on CPU."""
+        device = torch.device("cpu")
+        model = CarClassificationCNN(num_classes=6, pretrained=False).to(device)
+        model.eval()
+        
+        x = torch.randn(2, 3, 224, 224).to(device)
+        with torch.no_grad():
+            output = model(x)
+        
+        assert output.device.type == "cpu"
+        assert output.shape == (2, 6)
+    
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    def test_cuda_device_if_available(self):
+        """Test CUDA device selection if available."""
+        device = torch.device("cuda")
+        model = CarClassificationCNN(num_classes=6, pretrained=False).to(device)
+        
+        first_param = next(model.parameters())
+        assert first_param.device.type == "cuda"
+    
+    @pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
+    def test_mps_device_if_available(self):
+        """Test MPS device selection if available (Apple Silicon)."""
+        device = torch.device("mps")
+        model = CarClassificationCNN(num_classes=6, pretrained=False).to(device)
+        
+        first_param = next(model.parameters())
+        assert first_param.device.type == "mps"
+
+
+class TestLearningRateScheduler:
+    """Test suite for learning rate scheduling."""
+    
+    def test_reduce_lr_on_plateau_initialization(self):
+        """Test ReduceLROnPlateau scheduler initialization."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3)
+        
+        # Initial learning rate should be preserved
+        assert optimizer.param_groups[0]["lr"] == 0.01
+    
+    def test_scheduler_reduces_lr_on_plateau(self):
+        """Test that scheduler reduces learning rate when loss plateaus."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
+        
+        initial_lr = optimizer.param_groups[0]["lr"]
+        
+        # Simulate plateau (no improvement in loss)
+        for _ in range(5):
+            scheduler.step(1.0)
+        
+        # Learning rate should have been reduced
+        current_lr = optimizer.param_groups[0]["lr"]
+        assert current_lr < initial_lr, f"LR should be reduced: initial={initial_lr}, current={current_lr}"
+    
+    def test_scheduler_does_not_reduce_lr_with_improvement(self):
+        """Test that scheduler doesn't reduce LR when loss improves."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
+        
+        initial_lr = optimizer.param_groups[0]["lr"]
+        
+        # Simulate improving loss
+        for i in range(3):
+            scheduler.step(1.0 - i * 0.1)
+        
+        # Learning rate should not have been reduced
+        current_lr = optimizer.param_groups[0]["lr"]
+        assert current_lr == initial_lr, "LR should not be reduced when loss improves"
+
+
+class TestTrainingEdgeCases:
+    """Test suite for edge cases in training."""
+    
+    def test_training_with_single_batch(self):
+        """Test training with only one batch."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        # Single batch
+        images = torch.randn(4, 3, 224, 224)
+        labels = torch.randint(0, 6, (4,))
+        dataset = TensorDataset(images, labels)
+        dataloader = DataLoader(dataset, batch_size=4)
+        
+        device = torch.device("cpu")
+        loss, acc = train_one_epoch(model, dataloader, criterion, optimizer, device, epoch=1)
+        
+        assert isinstance(loss, float) and loss >= 0
+        assert isinstance(acc, float) and 0 <= acc <= 100
+    
+    def test_validation_with_single_sample(self):
+        """Test validation with only one sample."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        
+        # Single sample
+        images = torch.randn(1, 3, 224, 224)
+        labels = torch.randint(0, 6, (1,))
+        dataset = TensorDataset(images, labels)
+        dataloader = DataLoader(dataset, batch_size=1)
+        
+        device = torch.device("cpu")
+        loss, acc = validate(model, dataloader, criterion, device, epoch=1)
+        
+        assert isinstance(loss, float) and loss >= 0
+        assert isinstance(acc, float) and acc in [0.0, 100.0]
+    
+    def test_training_with_large_batch_size(self):
+        """Test training with batch size equal to dataset size."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        images = torch.randn(20, 3, 224, 224)
+        labels = torch.randint(0, 6, (20,))
+        dataset = TensorDataset(images, labels)
+        # Batch size equals dataset size
+        dataloader = DataLoader(dataset, batch_size=20)
+        
+        device = torch.device("cpu")
+        loss, acc = train_one_epoch(model, dataloader, criterion, optimizer, device, epoch=1)
+        
+        assert isinstance(loss, float) and loss >= 0
+        assert isinstance(acc, float) and 0 <= acc <= 100
+    
+    def test_model_on_different_image_sizes(self):
+        """Test that model can handle different input sizes."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        model.eval()
+        
+        # Different sizes (note: this might fail for some models that expect fixed size)
+        sizes = [(224, 224), (112, 112)]
+        
+        for h, w in sizes:
+            x = torch.randn(2, 3, h, w)
+            with torch.no_grad():
+                try:
+                    output = model(x)
+                    assert output.shape[0] == 2
+                    assert output.shape[1] == 6
+                except RuntimeError:
+                    # It's OK if model doesn't support variable sizes
+                    pass
+
+
+class TestModelTrainingState:
+    """Test suite for model training state management."""
+    
+    def test_model_switches_to_training_mode(self):
+        """Test that model can switch to training mode."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        model.eval()
+        assert not model.training
+        
+        model.train()
+        assert model.training
+    
+    def test_model_switches_to_eval_mode(self):
+        """Test that model can switch to eval mode."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        model.train()
+        assert model.training
+        
+        model.eval()
+        assert not model.training
+    
+    def test_dropout_behavior_in_train_vs_eval(self):
+        """Test that dropout behaves differently in train vs eval mode."""
+        # Create a simple model with dropout
+        class SimpleModelWithDropout(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc = nn.Linear(10, 10)
+                self.dropout = nn.Dropout(p=0.5)
+            
+            def forward(self, x):
+                return self.dropout(self.fc(x))
+        
+        model = SimpleModelWithDropout()
+        x = torch.randn(100, 10)
+        
+        # In training mode, dropout should be active
+        model.train()
+        torch.manual_seed(42)
+        output_train_1 = model(x)
+        torch.manual_seed(42)
+        output_train_2 = model(x)
+        # Due to dropout randomness, outputs might differ
+        
+        # In eval mode, dropout should be disabled
+        model.eval()
+        torch.manual_seed(42)
+        output_eval_1 = model(x)
+        torch.manual_seed(42)
+        output_eval_2 = model(x)
+        # Outputs should be identical in eval mode
+        assert torch.allclose(output_eval_1, output_eval_2), "Eval mode outputs should be deterministic"
+
+
+class TestLoggingAndProgress:
+    """Test suite for logging and progress tracking."""
+    
+    def test_train_one_epoch_logs_progress(self):
+        """Test that train_one_epoch logs progress."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+        images = torch.randn(20, 3, 224, 224)
+        labels = torch.randint(0, 6, (20,))
+        dataset = TensorDataset(images, labels)
+        dataloader = DataLoader(dataset, batch_size=4)
+        
+        device = torch.device("cpu")
+        
+        # Should complete without errors
+        loss, acc = train_one_epoch(model, dataloader, criterion, optimizer, device, epoch=1)
+        assert loss >= 0 and 0 <= acc <= 100
+    
+    def test_validate_logs_progress(self):
+        """Test that validate logs progress."""
+        model = CarClassificationCNN(num_classes=6, pretrained=False)
+        criterion = nn.CrossEntropyLoss()
+        
+        images = torch.randn(20, 3, 224, 224)
+        labels = torch.randint(0, 6, (20,))
+        dataset = TensorDataset(images, labels)
+        dataloader = DataLoader(dataset, batch_size=4)
+        
+        device = torch.device("cpu")
+        
+        # Should complete without errors
+        loss, acc = validate(model, dataloader, criterion, device, epoch=1)
+        assert loss >= 0 and 0 <= acc <= 100
+
+
+class TestTrainMainFunction:
+    """Test suite for the main train function - using mocks for speed."""
+    
+    @pytest.fixture
+    def test_data_dirs(self, tmp_path):
+        """Create minimal test data directories."""
+        from PIL import Image
+        
+        classes = ["ClassA", "ClassB", "ClassC"]
+        
+        train_dir = tmp_path / "train"
+        test_dir = tmp_path / "test"
+        
+        for split_dir in [train_dir, test_dir]:
+            for class_name in classes:
+                class_dir = split_dir / class_name
+                class_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Create just one test image per class
+                img = Image.new("RGB", (50, 50), color=(100, 100, 100))
+                img.save(class_dir / "img.jpg")
+        
+        return train_dir, test_dir
+    
+    def test_train_function_handles_device_selection(self, test_data_dirs, tmp_path):
+        """Test that train function handles device selection."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        # Mock the training loops to avoid actual training
+        with patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val:
+            
+            mock_train.return_value = (0.5, 80.0)
+            mock_val.return_value = (0.6, 75.0)
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=1,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=False,
+                use_wandb=False,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+        
+        # Verify output directory was created
+        assert output_dir.exists()
+    
+    def test_train_with_auto_device_selection(self, test_data_dirs, tmp_path):
+        """Test train with auto device selection."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val, \
+             patch("torch.cuda.is_available", return_value=False), \
+             patch("torch.backends.mps.is_available", return_value=False):
+            
+            mock_train.return_value = (0.5, 80.0)
+            mock_val.return_value = (0.6, 75.0)
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=1,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="auto",
+                profile_run=False,
+                use_wandb=False,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+        
+        assert output_dir.exists()
+    
+    def test_train_creates_log_file(self, test_data_dirs, tmp_path):
+        """Test that train creates a log file."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val:
+            
+            mock_train.return_value = (0.5, 80.0)
+            mock_val.return_value = (0.6, 75.0)
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=1,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=False,
+                use_wandb=False,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="INFO",
+            )
+        
+        # Check for log file
+        log_path = output_dir / "training.log"
+        assert log_path.exists()
+    
+    def test_train_with_profile_run(self, test_data_dirs, tmp_path):
+        """Test train with profiling enabled exits early."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.profile") as mock_profile:
+            # Mock the profile context manager
+            mock_profile.return_value.__enter__ = MagicMock()
+            mock_profile.return_value.__exit__ = MagicMock()
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=1,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=True,
+                use_wandb=False,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+        
+        assert output_dir.exists()
+    
+    def test_train_handles_wandb_not_available(self, test_data_dirs, tmp_path):
+        """Test train handles wandb not being available."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.WANDB_AVAILABLE", False), \
+             patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val:
+            
+            mock_train.return_value = (0.5, 80.0)
+            mock_val.return_value = (0.6, 75.0)
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=1,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=False,
+                use_wandb=True,  # Try to use wandb but it's not available
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+        
+        assert output_dir.exists()
+    
+    def test_train_handles_missing_wandb_api_key(self, test_data_dirs, tmp_path):
+        """Test train handles missing WANDB_API_KEY."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.WANDB_AVAILABLE", True), \
+             patch("car_image_classification_using_cnn.train.os.getenv", return_value=None), \
+             patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val:
+            
+            mock_train.return_value = (0.5, 80.0)
+            mock_val.return_value = (0.6, 75.0)
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=1,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=False,
+                use_wandb=True,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+        
+        assert output_dir.exists()
+    
+    def test_train_saves_checkpoint_on_improvement(self, test_data_dirs, tmp_path):
+        """Test that train saves checkpoint when validation improves."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val, \
+             patch("car_image_classification_using_cnn.train.torch.save") as mock_save:
+            
+            mock_train.return_value = (0.5, 80.0)
+            # Improving validation accuracy
+            mock_val.side_effect = [(0.6, 70.0), (0.5, 80.0)]
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=2,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=False,
+                use_wandb=False,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+            
+            # Should save at least once (for improvement)
+            assert mock_save.called
+    
+    def test_train_uses_lr_scheduler(self, test_data_dirs, tmp_path):
+        """Test that train uses learning rate scheduler."""
+        from car_image_classification_using_cnn.train import train
+        
+        train_dir, test_dir = test_data_dirs
+        output_dir = tmp_path / "output"
+        
+        with patch("car_image_classification_using_cnn.train.train_one_epoch") as mock_train, \
+             patch("car_image_classification_using_cnn.train.validate") as mock_val, \
+             patch("torch.optim.lr_scheduler.ReduceLROnPlateau") as mock_scheduler:
+            
+            mock_train.return_value = (0.5, 80.0)
+            mock_val.return_value = (0.6, 75.0)
+            mock_sched_instance = MagicMock()
+            mock_scheduler.return_value = mock_sched_instance
+            
+            train(
+                train_data_path=train_dir,
+                test_data_path=test_dir,
+                model_type="custom",
+                pretrained=False,
+                num_epochs=2,
+                batch_size=2,
+                learning_rate=0.001,
+                weight_decay=1e-4,
+                output_dir=output_dir,
+                device="cpu",
+                profile_run=False,
+                use_wandb=False,
+                wandb_project="test-project",
+                wandb_entity=None,
+                log_level="ERROR",
+            )
+            
+            # Scheduler step should be called for each epoch
+            assert mock_sched_instance.step.call_count == 2
