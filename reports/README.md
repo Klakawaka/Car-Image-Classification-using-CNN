@@ -100,7 +100,7 @@ These practices are important in larger projects because they ensure consistency
 > In the following section we are interested in how version control was used in your project during development to
 > corporate and increase the quality of your code.
 
-### Question 7 
+### Question 7
 
 > **How many tests did you implement and what are they testing in your code?**
 >
@@ -128,7 +128,7 @@ The focus was on the most failure-prone components: the data pipeline, model def
 >
 > Answer:
 
-Total code coverage is X ~85% (pytest-cov, src/ only, excluding tests and configs).
+Total code coverage is 82% (pytest-cov, src/ only, excluding tests and configs).
 
 Even 100% coverage would not mean the code is error-free. Coverage only shows which lines were executed not whether the logic is correct, edge cases are handled, numerical stability holds, or the model generalizes to new data. ML-specific issues like data drift, preprocessing mismatches, or GPU/CPU differences often lie outside unit tests, so high coverage is good but must be combined with meaningful tests, experiment tracking, and monitoring at all time for it to be reliable.
 
