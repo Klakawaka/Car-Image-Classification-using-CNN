@@ -1,6 +1,6 @@
-# Machine learning group 
+# Machine learning group
 ### Project structure
-
+```
 CAR-IMAGE-CLASSIFICATION-USING-CNN
 ├── Makefile              <- Automation commands (e.g. make train, make evaluate)
 ├── README.md             <- Top-level README for developers and reviewers
@@ -48,7 +48,7 @@ CAR-IMAGE-CLASSIFICATION-USING-CNN
 ├── .dockerignore         <- Files ignored by Docker
 ├── .gitignore            <- Files ignored by Git
 
-
+```
 # Project Description
 
 ## Goal

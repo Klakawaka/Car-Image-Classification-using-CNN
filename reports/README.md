@@ -189,7 +189,7 @@ We use pre-commit hooks locally (`.pre-commit-config.yaml`) that run the same ch
 > In the following section we are interested in learning more about the experimental setup for running your code and
 > especially the reproducibility of your experiments.
 
-### Question 12 
+### Question 12
 
 > **How did you configure experiments? Did you make use of config files? Explain with coding examples of how you would**
 > **run a experiment.**
@@ -309,13 +309,13 @@ When encountering bugs during experiments, we followed a systematic debugging ap
 
 For profiling, we used PyTorch's built-in profiler to identify performance bottlenecks in our training loop. We discovered that data loading was a bottleneck and addressed it by increasing the number of workers in our DataLoader. We also used the `--profile_run` flag in [`train.py`](src/car_image_classification_using_cnn/train.py) to profile specific training runs.
 
-While our code works well for this project, it's far from perfect. We identified areas for improvement such as more efficient data preprocessing, better error handling, and optimization of model inference speed. Continuous profiling and optimization would be necessary for production deployment. 
+While our code works well for this project, it's far from perfect. We identified areas for improvement such as more efficient data preprocessing, better error handling, and optimization of model inference speed. Continuous profiling and optimization would be necessary for production deployment.
 
 ## Working in the cloud
 
 > In the following section we would like to know more about your experience when developing in the cloud.
 
-### Question 17 
+### Question 17
 
 > **List all the GCP services that you made use of in your project and shortly explain what each service does?**
 >
@@ -337,7 +337,7 @@ We used the following GCP services:
 
 - **Cloud Run** (optional/experimental): Serverless container platform where we tested deploying our FastAPI backend for auto-scaling inference.
 
-### Question 18 
+### Question 18
 
 > **The backbone of GCP is the Compute engine. Explained how you made use of this service and what type of VMs**
 > **you used?**
@@ -367,35 +367,35 @@ We used Compute Engine to run GPU-accelerated training jobs in the cloud. Specif
 
 This setup provided ~10x speedup compared to CPU-only training while keeping costs manageable through on-demand GPU usage.
 
-### Question 19 
+### Question 19
 
 > **Insert 1-2 images of your GCP bucket, such that we can see what data you have stored in it.**
 > **You can take inspiration from [this figure](figures/bucket.png).**
 >
 > Answer:
 
-![GCP Bucket Overview](figures/gcp_bucket.png)
+![GCP Bucket Overview](figures/bucket.png)
 
 Our GCS bucket `dtu-mlops-car-classification_bucket` contains:
 - `raw/` - DVC-tracked training and test datasets (6 car classes)
 - `models/` - Trained model checkpoints (.pth files)
 - `.dvc/cache/` - DVC cache for data versioning
 
-### Question 20 
+### Question 20
 
 > **Upload 1-2 images of your GCP artifact registry, such that we can see the different docker images that you have**
 > **stored. You can take inspiration from [this figure](figures/registry.png).**
 >
 > Answer:
 
-![GCP Artifact Registry](figures/artifact_registry.png)
+![GCP Artifact Registry](figures/registry.png)
 
 Our Artifact Registry contains:
 - `train:latest` - Training container (~2.5 GB)
 - `api:latest` - FastAPI inference container (~1.8 GB)
 - Multiple tagged versions corresponding to different commits
 
-### Question 21 
+### Question 21
 
 > **Upload 1-2 images of your GCP cloud build history, so we can see the history of the images that have been build in**
 > **your project. You can take inspiration from [this figure](figures/build.png).**
@@ -433,7 +433,7 @@ This approach gave us full control over dependencies (via Docker), ensured repro
 
 ## Deployment
 
-### Question 23 
+### Question 23
 
 > **Did you manage to write an API for your model? If yes, explain how you did it and if you did anything special. If**
 > **not, explain how you would do it.**
@@ -549,7 +549,7 @@ We also implemented drift detection using Evidently, accessible through the /mon
 
 > In the following section we would like you to think about the general structure of your project.
 
-### Question 27 
+### Question 27
 
 > **How many credits did you end up using during the project and what service was most expensive? In general what do**
 > **you think about working in the cloud?**
@@ -572,7 +572,7 @@ We used approximately $30-40 in total GCP credits across all team members:
 **Reflections on cloud computing:**
 Working in the cloud was initially challenging due to the learning curve (IAM permissions, networking, quotas) but ultimately very beneficial. The ability to access GPU resources on-demand was crucial for experimentation. However, costs can escalate quickly if resources aren't managed properly - we learned to:
 - Always stop VMs when not in use
-- Use preemptible instances for non-critical workloads  
+- Use preemptible instances for non-critical workloads
 - Monitor billing alerts closely
 
 For this course project, cloud resources were appropriate. For larger production systems, careful cost optimization and resource planning would be essential.
@@ -677,9 +677,9 @@ Overall, the project required balancing model development with engineering and i
 
 - **Student s215810** developed the Docker containerization strategy ([dockerfiles/](dockerfiles/)), set up GitHub Actions CI/CD workflows ([`.github/workflows/`](.github/workflows/)), and managed GCP Compute Engine deployments.
 
-- **Student s205430** implemented the FastAPI backend ([`src/main.py`](src/main.py)), created the Streamlit frontend ([`frontend.py`](frontend.py)), and developed drift detection functionality ([`drift_detection.py`](src/car_image_classification_using_cnn/drift_detection.py)).
+- **Student s205430** was responsible for the testing infrastructure ([`tests/`](tests/)), writing unit and integration tests, setting up coverage reporting, implemented the FastAPI backend ([`src/main.py`](src/main.py)),  and developed drift detection functionality ([`drift_detection.py`](src/car_image_classification_using_cnn/drift_detection.py)).
 
-- **Student s215813** was responsible for the testing infrastructure ([`tests/`](tests/)), writing unit and integration tests, setting up coverage reporting, and implementing pre-commit hooks for code quality ([`.pre-commit-config.yaml`](.pre-commit-config.yaml)).
+- **Student s215813** Implemented API integration and load tests and set up continuous integration using GitHub Actions to ensure reliability and code quality. Developed a specialized ML deployment API using BentoML and ONNX for efficient and scalable model inference. Created a frontend interface for the API to enable user interaction and demonstrate the deployed machine learning system. ([`frontend.py`](frontend.py)). Implementing pre-commit hooks for code quality ([`.pre-commit-config.yaml`](.pre-commit-config.yaml)).
 
 **Shared Responsibilities:**
 All members contributed to code reviews through pull requests, participated in debugging sessions, configured Weights & Biases experiment tracking, and ran local training experiments. We collaborated on documentation and the final report.
