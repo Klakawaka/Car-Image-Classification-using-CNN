@@ -246,6 +246,7 @@ To reproduce any run: checkout the commit, dvc pull, run the exact command from 
 >
 > Answer:
 
+![wandb](figures/wandb.png)
 We used Weights & Biases to track our experiments. Key metrics tracked include:
 
 - **Training Loss**: Monitors how well the model is learning from the training data. A decreasing trend indicates the model is improving.
