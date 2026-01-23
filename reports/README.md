@@ -472,13 +472,14 @@ For cloud deployment, we containerized the FastAPI application using Docker and 
 The deployed service can be invoked via HTTP requests using tools such as curl, Postman, or through our Streamlit frontend. For example, users can upload an image to the /predict endpoint and receive a classification result in JSON format. This deployment approach ensured scalability, reproducibility, and ease of access.
 
 **Local deployment:**
-```bash
+ bash
  Using uvicorn directly
  uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 Or using Docker
 docker build -f [api.dockerfile](http://_vscodecontentref_/0) -t api:latest .
 docker run -p 8000:8000 api:latest
+
 
 ### Question 25
 
