@@ -10,14 +10,10 @@ jobs:
   build-deploy:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      id-token: write
-
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION: europe-west1
-      SERVICE_NAME: car-image-classification
+      SERVICE: car-image-classification
       IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/car-image-classification
 
     steps:
@@ -27,25 +23,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-
-      - name: Authenticate to Google Cloud
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Set up Cloud SDK
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Configure Docker for GCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: gcloud auth configure-docker gcr.io --quiet
-
-
+      # PRs: build only (no auth needed)
       - name: Build Docker image (PR - no push)
         if: github.event_name == 'pull_request'
         run: |
@@ -53,12 +31,28 @@ jobs:
             --platform linux/amd64 \
             -f dockerfiles/api.dockerfile \
             -t $IMAGE_NAME:pr-${{ github.event.pull_request.number }} \
-            --load \
             .
 
+      # main: auth + push + deploy
+      - name: Authenticate to Google Cloud
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        if: github.ref == 'refs/heads/main'
+        run: gcloud auth configure-docker gcr.io --quiet
 
       - name: Build and push Docker image (main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           docker buildx build \
             --platform linux/amd64 \
@@ -69,9 +63,9 @@ jobs:
             .
 
       - name: Deploy to Cloud Run (main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
-          gcloud run deploy $SERVICE_NAME \
+          gcloud run deploy $SERVICE \
             --image $IMAGE_NAME:latest \
             --platform managed \
             --region $REGION \

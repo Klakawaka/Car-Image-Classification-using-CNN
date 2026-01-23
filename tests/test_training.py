@@ -528,14 +528,21 @@ class TestDeviceSelection:
         first_param = next(model.parameters())
         assert first_param.device.type == "cuda"
 
-    @pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
+    @pytest.mark.skipif(
+        not (torch.backends.mps.is_available() and torch.backends.mps.is_built()),
+        reason="MPS not available",
+    )
     def test_mps_device_if_available(self):
         """Test MPS device selection if available (Apple Silicon)."""
         device = torch.device("mps")
-        model = CarClassificationCNN(num_classes=6, pretrained=False).to(device)
 
-        first_param = next(model.parameters())
-        assert first_param.device.type == "mps"
+        try:
+            _ = torch.empty((1,), device=device)
+        except RuntimeError as e:
+            pytest.skip(f"MPS unusable on this runner: {e}")
+
+        model = CarClassificationCNN(num_classes=6, pretrained=False).to(device)
+        assert next(model.parameters()).device.type == "mps"
 
 
 class TestLearningRateScheduler:
