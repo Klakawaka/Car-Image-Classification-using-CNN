@@ -94,13 +94,13 @@ These practices are especially important in larger projects because they reduce 
 >
 > Answer:
 
-We implemented approximately 45 tests across multiple test files. The tests cover:
+We implemented over 200 tests across multiple test files. The tests cover:
 
-- **Data loading and transforms** (`test_data.py`) - verifying dataset creation, data augmentation, and preprocessing
+- **Data loading and transforms** (`test_data.py, test_data_transform.py)`) - dataset loading, transforms, preprocessing, and grayscale conversion.
 - **Model architecture** (`test_model.py`) - checking model output shapes, parameter counts, and forward passes
-- **Training functions** (`test_training.py`) - validating training/validation loops, gradient flow, and optimizer behavior
-- **Drift detection** (`test_drift_detection.py`) - testing feature extraction and drift report generation
-- **API endpoints** (`test_apis.py`) - ensuring prediction and monitoring endpoints work correctly
+- **Training and evaluation functions** (`test_training.py, test_train_hydra.py, test_evaluate.py`) - vtraining/validation loops, optimizer behavior, learning rate scheduling, device selection, and model evaluation.
+- **Monitering** (`test_drift_detection.py, test_logger.py`) - feature extraction, drift detection, and logging configuration.
+- **API endpoints** (`test_apis.py`) - prediction, batch prediction, health checks, and error handling.
 
 The focus was on the most failure-prone components: the data pipeline, model definition, and API functionality.
 
