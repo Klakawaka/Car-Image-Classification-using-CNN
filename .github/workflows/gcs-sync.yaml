@@ -65,19 +65,3 @@ jobs:
             --push \
             .
 
-      - name: Deploy to Cloud Run (main)
-        if: github.ref == 'refs/heads/main'
-        run: |
-          gcloud run deploy $SERVICE \
-            --image $IMAGE_NAME:latest \
-            --platform managed \
-            --region $REGION \
-            --service-account $RUNTIME_SA \
-            --allow-unauthenticated \
-            --memory 4Gi \
-            --cpu 2 \
-            --timeout 3600 \
-            --port 8000 \
-            --cpu-boost \
-            --no-cpu-throttling \
-            --quiet
