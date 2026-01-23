@@ -128,6 +128,7 @@ The project focuses on performing an image classification task on the car brand 
 This project includes Docker support for reproducible training and evaluation. See [docs/DOCKER.md](docs/DOCKER.md) for comprehensive usage instructions.
 
 ### Quick Start
+To run the frontend streamlib application, follow the [QUICKSTART.MD](QUICKSTART.md) guide.
 
 Build and run training:
 ```bash
