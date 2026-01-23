@@ -27,11 +27,13 @@ RUN uv sync --no-dev
 
 RUN mkdir -p /app/models
 
+ENV PORT=8000
+
 # Expose port for FastAPI
-EXPOSE 8080
+EXPOSE 8000
 
 # Set working directory to src for running the app
 WORKDIR /app/src
 
-# Run FastAPI server
-ENTRYPOINT ["sh", "-c", "uv run uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Run FastAPI server using PORT environment variable
+CMD uv run uvicorn main:app --host 0.0.0.0 --port ${PORT}
