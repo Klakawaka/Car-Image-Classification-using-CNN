@@ -21,7 +21,6 @@ COPY src/ src/
 COPY README.md README.md
 COPY LICENSE LICENSE
 
-COPY raw/train raw/train
 
 # Install the project itself
 RUN uv sync --no-dev

@@ -61,8 +61,10 @@ def train_one_epoch(
         pbar.set_postfix({"loss": loss.item(), "acc": 100.0 * correct / total})
 
         if batch_idx % 10 == 0:
-            logger.debug(f"Batch {batch_idx}/{len(train_loader)}: loss={loss.item():.4f}, acc={100.0 * correct / total:.2f}%")
-            
+            logger.debug(
+                f"Batch {batch_idx}/{len(train_loader)}: loss={loss.item():.4f}, acc={100.0 * correct / total:.2f}%"
+            )
+
             if use_wandb and WANDB_AVAILABLE:
                 wandb.log(
                     {

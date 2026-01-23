@@ -17,7 +17,6 @@ from tests import _PATH_TEST_DATA, _PATH_TRAIN_DATA
 
 
 class TestExtractImageFeatures:
-
     def test_extract_features_from_uniform_image(self, tmp_path: Path) -> None:
         test_img = Image.new("RGB", (224, 224), color=(128, 128, 128))
         img_path = tmp_path / "gray.jpg"
@@ -186,7 +185,6 @@ class TestExtractFeaturesFromDataset:
 
 
 class TestGenerateDriftReport:
-
     def test_generate_report_creates_file(self, tmp_path: Path) -> None:
         """Test that drift report file is created."""
         reference_data = pd.DataFrame(
@@ -272,7 +270,6 @@ class TestGenerateDriftReport:
     reason="Training or test data not found",
 )
 class TestDriftDetectionIntegration:
-
     def test_complete_drift_detection_workflow(self, tmp_path: Path) -> None:
         train_features = extract_features_from_dataset(Path(_PATH_TRAIN_DATA), max_samples=20)
         test_features = extract_features_from_dataset(Path(_PATH_TEST_DATA), max_samples=20)
@@ -311,7 +308,6 @@ class TestDriftDetectionIntegration:
 
 
 class TestDriftDetectionEdgeCases:
-
     def test_extract_features_empty_dataset(self, tmp_path: Path) -> None:
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()

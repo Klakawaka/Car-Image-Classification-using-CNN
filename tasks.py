@@ -38,9 +38,8 @@ def docker_build(ctx: Context, progress: str = "plain") -> None:
     ctx.run(
         f"docker build --platform linux/amd64 -t api:latest . -f dockerfiles/api.dockerfile --progress={progress}",
         echo=True,
-        pty=not WINDOWS
+        pty=not WINDOWS,
     )
- 
 
 
 # Documentation commands

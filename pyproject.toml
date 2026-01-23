@@ -47,7 +47,7 @@ dependencies = [
   "python-multipart>=0.0.21",
   "evidently>=0.7.20",
   "scikit-learn>=1.8.0",
-  "pandas>=2.3.3",
+  "pandas>=2.2,<3",
   "onnx>=1.19.0",
   "onnxruntime>=1.23.2",
   "onnxscript>=0.5.0",
@@ -56,6 +56,8 @@ dependencies = [
   "rich>=14.2.0",
   "prometheus-client>=0.24.1",
   "streamlit>=1.53.0",
+  "statsmodels>=0.14.0",
+
 ]
 
 [dependency-groups]
@@ -108,3 +110,6 @@ omit = [
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["F401", "F841"]

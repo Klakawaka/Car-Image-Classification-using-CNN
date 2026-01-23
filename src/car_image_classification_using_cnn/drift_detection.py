@@ -11,7 +11,6 @@ from car_image_classification_using_cnn.data import CarImageDataset
 
 
 def extract_image_features(image_path: Path) -> dict[str, float]:
-
     img = Image.open(image_path).convert("RGB")
     img_array = np.array(img, dtype=np.float32)
 
@@ -55,8 +54,6 @@ def generate_drift_report(
     report.save_html(str(output_path))
 
     print(f"Drift report saved to {output_path}")
-
-
 
 
 if __name__ == "__main__":
