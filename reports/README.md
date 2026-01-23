@@ -47,7 +47,7 @@ Clone repo: git clone https://github.com/Klakawaka/Car-Image-Classification-usin
 Install Poetry (pip install poetry)
 Run poetry install → creates venv + installs deps
 Activate: poetry shell
-For GPU training: use Docker (see Q15) or ensure local CUDA compatibility
+For GPU-based training or cloud deployment, we rely on Docker images that encapsulate the same dependencies, eliminating host-specific issues such as CUDA mismatches. This combination of Poetry for local development and Docker for deployment ensured consistent environments, reduced onboarding friction, and minimized “works on my machine” problems.
 
 This ensures identical environments for everyone.
 
@@ -60,23 +60,11 @@ This ensures identical environments for everyone.
 
 > Answer:
 
-We mostly tried to follow the coockiecutter data science template. We initialized the project using the cookiecutter data-science template (DTU MLOps variant) and structured it as follows:
+We initialized the project using the DTU MLOps cookiecutter data science template, which provided a standardized and well-organized project structure. The core logic resides in src/car_image_classification_using_cnn/, containing modules for data loading, preprocessing, model definition, training with Hydra, evaluation, and visualization utilities. Configuration files are stored in the configs/ directory and managed using Hydra, allowing flexible experiment configuration.
 
-src/car_image_classification_using_cnn/ — all core logic (data.py, data_transform.py, model.py, train_hydra.py, evaluate.py, visualization helpers)
-configs/ — Hydra configuration files for models, training, data
-dockerfiles/ — separate Dockerfiles for training and evaluation
-tests/ — pytest unit and integration tests
-reports/figures/ — generated plots for this report
-models/ — saved checkpoints
-raw/ — Kaggle dataset (DVC tracked)
+We used tests/ for unit and integration testing, models/ for trained checkpoints, raw/ for DVC-tracked datasets, and reports/figures/ for generated plots. Dockerfiles were separated into a dockerfiles/ directory to clearly distinguish training, evaluation, and API containers.
 
-We used most standard folders but deviated in a few ways:
-
-Minimized notebooks/ (only early exploration, mostly gitignored now)
-Gitignored heavy files in outputs/
-Added .pre-commit-config.yaml for quality hooks
-Added cloudbuild.yaml for GCP integration
-Included basic drift detection code
+We deviated slightly from the original template by minimizing the use of notebooks after initial exploration and by adding MLOps-specific components such as .pre-commit-config.yaml, cloudbuild.yaml, and drift detection utilities. These changes were made to better support automation, reproducibility, and deployment, while still adhering to the spirit of the cookiecutter structure.
 
 ### Question 6
 
@@ -87,13 +75,11 @@ Included basic drift detection code
 
 > Answer:
 
-We enforced code quality and formatting with:
+We enforced code quality using several automated tools. Ruff was used for linting and formatting, ensuring consistent coding style and catching common programming errors. Mypy was used for static type checking, helping us detect type mismatches and logical issues early in development. These checks were integrated into pre-commit hooks, meaning code could not be committed unless it passed linting and type checks.
 
-ruff → linting + automatic formatting
-mypy → static type checking
-pre-commit hooks (.pre-commit-config.yaml) → runs ruff & mypy automatically on commit
+We also added docstrings and inline comments for key functions, particularly in the data pipeline, training loop, and API code. This improved readability and made the codebase easier to understand for all team members.
 
-These practices are important in larger projects because they ensure consistency across the team, reduce style-related merge conflicts, catch type and logic errors early, prevent bad code from entering the repository. I also  make onboarding and long-term maintenance much easier because their is readable text besides a code. In our group of five this noticeably cut down debugging time for trivial issues overall.
+These practices are especially important in larger projects because they reduce technical debt, prevent subtle bugs from propagating, and make collaboration more efficient. Consistent formatting reduces merge conflicts, typing catches errors before runtime, and documentation improves onboarding and long-term maintainability. In a team of five, these tools significantly reduced debugging time and improved overall code reliability.
 
 ## Version control
 
@@ -141,12 +127,11 @@ Even 100% coverage would not mean the code is error-free. Coverage only shows wh
 >
 > Answer:
 
-Yes. We used branches and pull request extensively. 
+Yes, we actively used branches and pull requests throughout the project. Each team member worked on separate feature branches (eg. datatranform, test_api, model_train ), such as data preprocessing, model training, API development, or testing. This allowed parallel development without interfering with the stability of the main branch.
 
-Each team member worked on different features in different branches(eg. datatranform, test_api, model_train )
+All changes were merged into main through pull requests. Each pull request required at least one team member’s approval and had to pass all CI checks or mostly all, including linting, formatting, and unit tests. This ensured that new code met quality standards before being integrated.
 
-In order for the features to be implemented to the main branch pull requests were requird, and one should at least approve it, it should showhow also pass the CL(lint, test, coverage).
-This workflow enabled safe parallel work, improved code quality through reviews, caught bugs early, and kept main stable.
+This workflow improved code quality through peer review, helped catch bugs early, and encouraged knowledge sharing within the group. It also provided a clear history of changes and made it easier to revert or debug problematic commits. Using branches and pull requests kept the main branch stable and production-ready throughout the project.
 
 ### Question 10
 
@@ -157,12 +142,14 @@ This workflow enabled safe parallel work, improved code quality through reviews,
 >
 > Answer:
 
-Yes, we used DVC to version both raw data (raw/) and trained models (models/).
+Using DVC significantly improved reproducibility and collaboration. All team members could pull the exact same version of the dataset and models using dvc pull, ensuring consistency across experiments. This prevented issues where different dataset versions could lead to inconsistent results.
+
+Using DVC significantly improved reproducibility and collaboration. All team members could pull the exact same version of the dataset and models using dvc pull, ensuring consistency across experiments. This prevented issues where different dataset versions could lead to inconsistent results.
 
 dvc add raw/, dvc add models/
 Remote storage on GCS bucket
 
-This improved the project by ensuring everyone used the exact same dataset version, prevented large files from bloating Git, made experiments fully reproducible, and allowed us to trace which checkpoint came from which run.
+Additionally, DVC allowed us to trace which data version was used to train each model checkpoint, improving experiment traceability. It also kept large files out of Git, keeping the repository lightweight. Overall, DVC played a crucial role in ensuring reproducible experiments, reliable collaboration, and clean version control of both data and models.
 
 ### Question 11
 
@@ -196,7 +183,6 @@ We have organized our continuous integration into two main GitHub Actions workfl
 
 We use pre-commit hooks locally (`.pre-commit-config.yaml`) that run the same checks before commits, catching issues early. The CI setup ensures that all code merged to main is tested, properly formatted, and passes linting. While we currently only test on one OS/Python version, this covers our deployment target environment and keeps CI runtime reasonable.
 
---- question 11 fill here ---
 
 ## Running code and tracking experiments
 
@@ -237,12 +223,11 @@ Hydra automatically saves the full configuration to `outputs/<timestamp>/.hydra/
 >
 > Answer:
 
-Reproducibility was secured through:
+We ensured experiment reproducibility through a combination of configuration management, version control, and logging. All experiments were configured using Hydra, which automatically saves the full configuration (including command-line overrides) to the output directory of each run. This ensures that no hyperparameter or setting is lost.
 
-Hydra auto-saving full config + overrides to outputs/.../.hydra/config.yaml
-Logging git commit hash, random seed, W&B run ID
-DVC pinning data and models
-Fixed seeds in code (torch, numpy, random)
+We also logged the Git commit hash, random seeds, and Weights & Biases run IDs for every experiment, creating a strong link between code, configuration, and results. Data and model versions were pinned using DVC, guaranteeing that the same dataset and checkpoints could be retrieved later.
+
+To reproduce an experiment, one simply needs to check out the corresponding Git commit, run dvc pull to retrieve the correct data and models, and rerun the exact Hydra command stored in the output directory or W&B dashboard. This setup ensured full traceability and reproducibility across environments and over time.
 
 To reproduce any run: checkout the commit, dvc pull, run the exact command from Hydra output or W&B.
 
@@ -480,18 +465,22 @@ We implemented background tasks to log predictions to `prediction_database.csv` 
 
 > Answer:
 
-Yes, we successfully deployed our API both locally and in the cloud.
+Yes, we successfully deployed our API both locally and in the cloud. Locally, the API can be run directly using Uvicorn or via Docker. Running locally allowed us to rapidly iterate and debug endpoints during development.
+
+For cloud deployment, we containerized the FastAPI application using Docker and pushed the image to Google Container Registry via our CI pipeline. The container was then deployed to Google Cloud Run, which provides serverless execution with automatic scaling. This allowed the API to handle varying request loads without manual infrastructure management.
+
+The deployed service can be invoked via HTTP requests using tools such as curl, Postman, or through our Streamlit frontend. For example, users can upload an image to the /predict endpoint and receive a classification result in JSON format. This deployment approach ensured scalability, reproducibility, and ease of access.
 
 **Local deployment:**
 ```bash
-# Using uvicorn directly
-uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+ Using uvicorn directly
+ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
-# Or using Docker
+Or using Docker
 docker build -f [api.dockerfile](http://_vscodecontentref_/0) -t api:latest .
 docker run -p 8000:8000 api:latest
 
-### Question 25 
+### Question 25
 
 > **Did you perform any unit testing and load testing of your API? If yes, explain how you did it and what results for**
 > **the load testing did you get. If not, explain how you would do it.**
@@ -535,7 +524,7 @@ For production deployment, we would implement more comprehensive load testing wi
 >
 > Answer:
 
-Yes, we implemented  monitoring for our deployed model using multiple approaches:
+Yes, we implemented monitoring for our deployed model using metrics, logging, and drift detection. The API exposes a /metrics endpoint compatible with Prometheus, providing insights into request counts, error rates, latency, and confidence score distributions. These metrics help monitor system health and performance over time. Its also shown below:
 
 **Metrics** (exposed at `/metrics` endpoint):
 - Request counters (total requests, errors, batch requests)
@@ -551,6 +540,9 @@ The API generates drift reports using Evidently by comparing recent predictions 
 - Feature drift (brightness, contrast distributions)
 - Class distribution shifts
 - Statistical summaries
+
+All predictions are logged to prediction_database.csv, including timestamps, predicted classes, confidence scores, and extracted image features. This creates a historical record that can be analyzed for anomalies or performance degradation.
+We also implemented drift detection using Evidently, accessible through the /monitoring endpoint. It compares recent prediction data with the training data distribution to detect feature and class distribution drift. Monitoring is essential for long-term model reliability, as it helps identify when retraining or data updates are required due to changing input distributions.
 
 ## Overall discussion of project
 
@@ -595,6 +587,7 @@ For this course project, cloud resources were appropriate. For larger production
 > Answer:
 
 We implemented a simple frontend for our API to make the system easier to use and demonstrate its functionality. The frontend allows users to interact with the API without needing to send requests manually, providing a more intuitive way to test and visualize the model's predictions.
+
 The frontend was designed to be lightweight and focused on usability rather than advanced features. It communicates directly with the backend API to submit input data and display the returned results. Implementing a frontend helped us validate that the API worked correctly in an end-to-end setup and made the project more accessible for users who are not familiar with API tools.
 
 ### Question 29
