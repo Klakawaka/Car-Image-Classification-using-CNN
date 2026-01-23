@@ -16,6 +16,9 @@ jobs:
       SERVICE: car-image-classification
       IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/car-image-classification
 
+      # NEW: runtime SA used by Cloud Run (you create this in GCP)
+      RUNTIME_SA: cloudrun-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,6 +72,7 @@ jobs:
             --image $IMAGE_NAME:latest \
             --platform managed \
             --region $REGION \
+            --service-account $RUNTIME_SA \
             --allow-unauthenticated \
             --memory 4Gi \
             --cpu 2 \
