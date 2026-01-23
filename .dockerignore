@@ -66,3 +66,8 @@ Dockerfile
 *.log
 .env
 .env.local
+
+# datasets / large data
+raw/
+data/
+datasets/

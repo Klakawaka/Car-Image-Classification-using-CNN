@@ -41,7 +41,7 @@ def send_batch_predictions(num_requests: int = 20) -> None:
             else:
                 failed += 1
 
-            time.sleep(0.5)  
+            time.sleep(0.5)
 
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
@@ -49,7 +49,7 @@ def send_batch_predictions(num_requests: int = 20) -> None:
 
     console.print(f"\n[green]✓ Successful: {successful}[/green]")
     console.print(f"[red]✗ Failed: {failed}[/red]")
-    console.print(f"\n[yellow]Now you can test the monitoring endpoint![/yellow]")
+    console.print("\n[yellow]Now you can test the API endpoints manually.[/yellow]")
     console.print("[yellow]Run: uv run python scripts/test_api_client.py monitoring[/yellow]")
 
 

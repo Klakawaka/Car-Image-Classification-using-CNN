@@ -77,8 +77,12 @@ def evaluate(
                 if label == prediction:
                     class_correct[class_name] += 1
 
-    overall_accuracy = 100 * correct / total
-    print(f"\nOverall Accuracy: {overall_accuracy:.2f}% ({correct}/{total})")
+    if total > 0:
+        overall_accuracy = 100 * correct / total
+        print(f"\nOverall Accuracy: {overall_accuracy:.2f}% ({correct}/{total})")
+    else:
+        print("\nNo samples found for evaluation!")
+        return
 
     print("\nPer-class Accuracy:")
     print("-" * 70)

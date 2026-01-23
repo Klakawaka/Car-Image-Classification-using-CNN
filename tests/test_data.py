@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -253,6 +254,226 @@ class TestDatasetConsistency:
         image_paths = [str(img_path) for img_path, _ in dataset.samples]
         unique_paths = set(image_paths)
         assert len(image_paths) == len(unique_paths), (
-            f"Dataset should not have duplicate image paths. "
+            "Dataset should not have duplicate image paths. "
             f"Found {len(image_paths)} total, {len(unique_paths)} unique"
         )
+
+
+class TestDatasetPreprocess:
+    """Test suite for dataset preprocessing functionality."""
+
+    def test_preprocess_creates_output_folder(self, tmp_path):
+        """Test that preprocess method creates output folder."""
+        # Create a minimal dataset
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+        test_img = Image.new("RGB", (100, 100), color="blue")
+        test_img.save(class_dir / "test.jpg")
+
+        dataset = CarImageDataset(input_dir)
+        dataset.preprocess(output_dir)
+
+        assert output_dir.exists(), "Output folder should be created"
+        assert output_dir.is_dir(), "Output should be a directory"
+
+    def test_preprocess_copies_class_structure(self, tmp_path):
+        """Test that preprocess maintains class directory structure."""
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        classes = ["Class1", "Class2"]
+        for class_name in classes:
+            class_dir = input_dir / class_name
+            class_dir.mkdir(parents=True)
+            test_img = Image.new("RGB", (50, 50))
+            test_img.save(class_dir / "test.jpg")
+
+        dataset = CarImageDataset(input_dir)
+        dataset.preprocess(output_dir)
+
+        for class_name in classes:
+            assert (output_dir / class_name).exists(), f"Class directory {class_name} should exist"
+
+    def test_preprocess_copies_images(self, tmp_path):
+        """Test that preprocess copies image files."""
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+
+        image_names = ["img1.jpg", "img2.png", "img3.jpeg"]
+        for img_name in image_names:
+            test_img = Image.new("RGB", (50, 50))
+            test_img.save(class_dir / img_name)
+
+        dataset = CarImageDataset(input_dir)
+        dataset.preprocess(output_dir)
+
+        output_class_dir = output_dir / "TestClass"
+        for img_name in image_names:
+            assert (output_class_dir / img_name).exists(), f"Image {img_name} should be copied"
+
+    def test_preprocess_skips_existing_files(self, tmp_path):
+        """Test that preprocess doesn't overwrite existing files."""
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+        test_img = Image.new("RGB", (50, 50), color="red")
+        test_img.save(class_dir / "test.jpg")
+
+        # Pre-create output with different content
+        output_class_dir = output_dir / "TestClass"
+        output_class_dir.mkdir(parents=True)
+        existing_img = Image.new("RGB", (50, 50), color="blue")
+        existing_img.save(output_class_dir / "test.jpg")
+
+        # Get modification time
+        original_mtime = (output_class_dir / "test.jpg").stat().st_mtime
+
+        dataset = CarImageDataset(input_dir)
+        dataset.preprocess(output_dir)
+
+        # File should not be overwritten
+        new_mtime = (output_class_dir / "test.jpg").stat().st_mtime
+        assert new_mtime == original_mtime, "Existing file should not be overwritten"
+
+    def test_preprocess_counts_copied_images(self, tmp_path):
+        """Test that preprocess prints count of copied images."""
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+
+        for i in range(3):
+            test_img = Image.new("RGB", (50, 50))
+            test_img.save(class_dir / f"img{i}.jpg")
+
+        dataset = CarImageDataset(input_dir)
+
+        with patch("builtins.print") as mock_print:
+            dataset.preprocess(output_dir)
+
+            # Should print copy count
+            print_calls = [str(call) for call in mock_print.call_args_list]
+            assert any("Copied" in str(call) for call in print_calls)
+
+
+class TestPreprocessStandaloneFunction:
+    """Test suite for the standalone preprocess function."""
+
+    def test_preprocess_function_creates_dataset(self, tmp_path):
+        """Test that preprocess function creates a dataset."""
+        from car_image_classification_using_cnn.data import preprocess
+
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+        test_img = Image.new("RGB", (100, 100))
+        test_img.save(class_dir / "test.jpg")
+
+        with patch("builtins.print"):
+            preprocess(input_dir, output_dir)
+
+        assert output_dir.exists()
+
+    def test_preprocess_function_prints_info(self, tmp_path):
+        """Test that preprocess function prints dataset information."""
+        from car_image_classification_using_cnn.data import preprocess
+
+        input_dir = tmp_path / "input"
+        output_dir = tmp_path / "output"
+
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+        test_img = Image.new("RGB", (50, 50))
+        test_img.save(class_dir / "test.jpg")
+
+        with patch("builtins.print") as mock_print:
+            preprocess(input_dir, output_dir)
+
+            print_calls = [str(call) for call in mock_print.call_args_list]
+            assert any("Found" in str(call) for call in print_calls)
+            assert any("Classes:" in str(call) for call in print_calls)
+
+
+class TestDatasetEdgeCases:
+    """Test suite for dataset edge cases and error handling."""
+
+    def test_dataset_handles_corrupted_images(self, tmp_path):
+        """Test that dataset skips corrupted images gracefully."""
+        input_dir = tmp_path / "input"
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+
+        # Create a valid image
+        valid_img = Image.new("RGB", (50, 50))
+        valid_img.save(class_dir / "valid.jpg")
+
+        # Create a corrupted "image" (just text)
+        (class_dir / "corrupted.jpg").write_text("This is not an image")
+
+        with patch("builtins.print"):
+            dataset = CarImageDataset(input_dir)
+
+        # Dataset should load but skip corrupted image
+        assert len(dataset) >= 1, "Should load at least the valid image"
+
+    def test_dataset_with_mixed_extensions(self, tmp_path):
+        """Test dataset with various image extensions."""
+        input_dir = tmp_path / "input"
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+
+        extensions = [".jpg", ".jpeg", ".png", ".bmp"]
+        for ext in extensions:
+            img = Image.new("RGB", (50, 50))
+            img.save(class_dir / f"test{ext}")
+
+        dataset = CarImageDataset(input_dir)
+
+        assert len(dataset) == len(extensions), "Should load all valid image types"
+
+    def test_dataset_negative_indexing(self, tmp_path):
+        """Test that dataset supports negative indexing."""
+        input_dir = tmp_path / "input"
+        class_dir = input_dir / "TestClass"
+        class_dir.mkdir(parents=True)
+
+        for i in range(5):
+            # Create images with different colors so they're distinguishable
+            img = Image.new("RGB", (50, 50), color=(i * 50, i * 40, i * 30))
+            img.save(class_dir / f"test{i}.jpg")
+
+        dataset = CarImageDataset(input_dir)
+
+        # Negative indexing should work
+        last_item = dataset[-1]
+        assert len(last_item) == 2, "Should return (image, label) tuple"
+
+        first_item = dataset[0]
+        second_last = dataset[-2]
+
+        # All items should be from same class but different images
+        assert len(first_item) == 2 and len(second_last) == 2
+
+    def test_transforms_mode_case_insensitive(self):
+        """Test that get_transforms handles different mode cases."""
+        from car_image_classification_using_cnn.data import get_transforms
+
+        # These should work without errors
+        train_transform = get_transforms(mode="train")
+        eval_transform = get_transforms(mode="eval")
+        test_transform = get_transforms(mode="test")
+
+        assert isinstance(train_transform, transforms.Compose)
+        assert isinstance(eval_transform, transforms.Compose)
+        assert isinstance(test_transform, transforms.Compose)

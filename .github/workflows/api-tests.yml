@@ -9,6 +9,8 @@ on:
 jobs:
   api-tests:
     runs-on: ubuntu-latest
+    env:
+      SKIP_MODEL_LOAD: "1"
 
     steps:
       - name: Checkout
@@ -18,12 +20,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
-          pip install -U pip
-          pip install -e .
-          pip install pytest
+          python -m pip install -U pip
+          python -m pip install -e .
+          python -m pip install pytest
 
       - name: Run API integration tests
         run: |

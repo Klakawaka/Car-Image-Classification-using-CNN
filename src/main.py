@@ -73,17 +73,31 @@ def save_prediction_to_db(
         writer = csv.writer(f)
 
         if not file_exists:
-            writer.writerow([
-                "time", "predicted_class", "confidence", 
-                "mean_brightness", "std_brightness", "contrast",
-                "max_brightness", "min_brightness"
-            ])
+            writer.writerow(
+                [
+                    "time",
+                    "predicted_class",
+                    "confidence",
+                    "mean_brightness",
+                    "std_brightness",
+                    "contrast",
+                    "max_brightness",
+                    "min_brightness",
+                ]
+            )
 
-        writer.writerow([
-            datetime.now().isoformat(), predicted_class, confidence, 
-            mean_brightness, std_brightness, contrast,
-            max_brightness, min_brightness
-        ])
+        writer.writerow(
+            [
+                datetime.now().isoformat(),
+                predicted_class,
+                confidence,
+                mean_brightness,
+                std_brightness,
+                contrast,
+                max_brightness,
+                min_brightness,
+            ]
+        )
 
 
 @asynccontextmanager
@@ -116,18 +130,22 @@ async def lifespan(app: FastAPI):
         project_root = Path(__file__).parent.parent
         model_path = project_root / model_path_env
 
-    if not model_path.exists():
+    skip_load = os.getenv("SKIP_MODEL_LOAD", "0") == "1"
+
+    if not model_path.exists() and not skip_load:
         raise FileNotFoundError(f"Model file not found at {model_path}")
 
     class_names = ["Audi", "Hyundai Creta", "Rolls Royce", "Swift", "Tata Safari", "Toyota Innova"]
 
     model = CarClassificationCNN(num_classes=len(class_names), pretrained=False)
-    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
 
-    if "model_state_dict" in checkpoint:
-        model.load_state_dict(checkpoint["model_state_dict"])
-    else:
-        model.load_state_dict(checkpoint)
+    if model_path.exists():
+        checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+
+        if "model_state_dict" in checkpoint:
+            model.load_state_dict(checkpoint["model_state_dict"])
+        else:
+            model.load_state_dict(checkpoint)
 
     model.to(device)
     model.eval()
@@ -316,20 +334,22 @@ async def get_monitoring_report(n: int = 100):
             raise HTTPException(status_code=404, detail="No predictions logged yet")
 
         current_data_raw = pd.read_csv(PREDICTION_DB).tail(n)
-        
+
         if len(current_data_raw) == 0:
             raise HTTPException(status_code=404, detail="No predictions in database")
 
-        current_data = pd.DataFrame({
-            'mean_brightness': current_data_raw['mean_brightness'],
-            'std_brightness': current_data_raw['std_brightness'],
-            'max_brightness': current_data_raw['max_brightness'],
-            'min_brightness': current_data_raw['min_brightness'],
-            'contrast': current_data_raw['contrast'],
-        })
-        
+        current_data = pd.DataFrame(
+            {
+                "mean_brightness": current_data_raw["mean_brightness"],
+                "std_brightness": current_data_raw["std_brightness"],
+                "max_brightness": current_data_raw["max_brightness"],
+                "min_brightness": current_data_raw["min_brightness"],
+                "contrast": current_data_raw["contrast"],
+            }
+        )
+
         class_name_to_idx = {name: idx for idx, name in enumerate(class_names)}
-        current_data['label'] = current_data_raw['predicted_class'].map(class_name_to_idx)
+        current_data["label"] = current_data_raw["predicted_class"].map(class_name_to_idx)
 
         train_data_path = Path("raw/train")
         if not train_data_path.exists():
@@ -391,9 +411,9 @@ async def get_monitoring_report(n: int = 100):
                         <th>Percentage</th>
                     </tr>
             """
-            
+
             for class_name, idx in class_name_to_idx.items():
-                count = (current_data['label'] == idx).sum()
+                count = (current_data["label"] == idx).sum()
                 percentage = (count / len(current_data)) * 100
                 html_content += f"""
                     <tr>
@@ -402,23 +422,26 @@ async def get_monitoring_report(n: int = 100):
                         <td>{percentage:.1f}%</td>
                     </tr>
                 """
-            
+
             html_content += """
                 </table>
             </body>
             </html>
             """
-            
+
             return HTMLResponse(content=html_content, status_code=200)
 
-        from car_image_classification_using_cnn.drift_detection import extract_features_from_dataset, generate_drift_report
+        from car_image_classification_using_cnn.drift_detection import (
+            extract_features_from_dataset,
+            generate_drift_report,
+        )
 
         print(f"Extracting features from {train_data_path}...")
         reference_data = extract_features_from_dataset(train_data_path, max_samples=n)
         print(f"Extracted {len(reference_data)} reference samples")
 
         report_path = Path("monitoring_report.html")
-        print(f"Generating drift report...")
+        print("Generating drift report...")
         generate_drift_report(reference_data, current_data, report_path)
         print(f"Report generated at {report_path}")
 
@@ -431,6 +454,7 @@ async def get_monitoring_report(n: int = 100):
         raise
     except Exception as e:
         import traceback
+
         error_detail = f"Failed to generate monitoring report: {str(e)}\n{traceback.format_exc()}"
         print(error_detail)
         raise HTTPException(status_code=500, detail=error_detail)
