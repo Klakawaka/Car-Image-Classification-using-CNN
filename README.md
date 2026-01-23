@@ -2,51 +2,106 @@
 ### Project structure
 ```
 CAR-IMAGE-CLASSIFICATION-USING-CNN
-├── Makefile              <- Automation commands (e.g. make train, make evaluate)
-├── README.md             <- Top-level README for developers and reviewers
+├── README.md                 <- Top-level README for developers and reviewers
+├── AGENTS.md                 <- AI agent instructions and guidelines
+├── LICENSE                   <- Project license
 │
-├── .devcontainer/        <- Development container configuration
-├── .dvc/                 <- DVC metadata for data and model versioning
-├── .github/              <- GitHub configuration
-│   ├── agents/           <- AI / MLOps agent documentation
-│   │   └── dtu_mlops_agent.md
-│   ├── prompts/          <- Prompt templates
-│   ├── workflows/        <- GitHub Actions CI/CD workflows
-│   └── dependabot.yaml   <- Dependency update configuration
+├── pyproject.toml            <- Python project metadata and dependencies (uv)
+├── uv.lock                   <- Locked dependencies for reproducibility
+├── tasks.py                  <- Invoke task automation commands
 │
-├── configs/              <- Configuration files (e.g. Hydra configs)
-├── dockerfiles/          <- Dockerfiles for containerized execution
-├── docs/                 <- Project documentation
+├── .devcontainer/            <- Development container configuration
+├── .dvc/                     <- DVC metadata for data and model versioning
+├── .github/                  <- GitHub configuration
+│   ├── workflows/            <- GitHub Actions CI/CD workflows
+│   │   ├── gcs-sync.yaml     <- Docker build and GCR push workflow
+│   │   └── tests.yaml        <- Automated testing workflow
+│   └── dependabot.yaml       <- Dependency update configuration
 │
-├── models/               <- Trained and serialized models, checkpoints, and summaries
-├── notebooks/            <- Jupyter notebooks for exploration and experiments
-│                           Naming convention:
-│                           <number>-<initials>-<short-description>.ipynb //igen skal anvendes eller slettes
+├── configs/                  <- Hydra configuration files
+│   ├── config.yaml           <- Main configuration
+│   ├── data/                 <- Data-related configs
+│   ├── experiment/           <- Experiment configs (customcnn, resnet variants)
+│   ├── model/                <- Model architecture configs
+│   └── training/             <- Training hyperparameter configs
 │
-├── outputs/              <- Training outputs such as logs, metrics, and predictions //MÅSKE SKAL SLETTES
+├── dockerfiles/              <- Dockerfiles for containerized execution
+│   ├── api.dockerfile        <- FastAPI service container
+│   ├── evaluate.dockerfile   <- Model evaluation container
+│   └── train.dockerfile      <- Training container
 │
-├── reports/              <- Project report and generated analysis
-│   ├── README.md         <- **EXAM REPORT**
-│   ├── figures/          <- Figures used in the report
-│   └── .gitkeep          <- Keeps the folder tracked by Git
+├── backend.dockerfile        <- Backend service Dockerfile
+├── frontend.dockerfile       <- Frontend service Dockerfile
+├── docker-compose.yml        <- Multi-container Docker setup
+├── cloudbuild.yaml           <- Google Cloud Build configuration
 │
-├── src/                  <- Source code for the project
+├── docs/                     <- Project documentation (MkDocs)
+│   ├── mkdocs.yaml           <- MkDocs configuration
+│   ├── README.md             <- Documentation overview
+│   └── source/               <- Documentation source files
+│
+├── data/                     <- Processed data directory
+│   └── processed/            <- Cleaned and transformed data
+│
+├── raw/                      <- Raw data directory (DVC-tracked)
+│   ├── train/                <- Training images by class
+│   └── test/                 <- Test images by class
+├── raw.dvc                   <- DVC file for raw data versioning
+│
+├── models/                   <- Trained models and checkpoints
+│   ├── best_model.pth        <- Best model checkpoint
+│   └── best_model.pth.dvc    <- DVC file for model versioning
+│
+├── notebooks/                <- Jupyter notebooks for exploration
+├── outputs/                  <- Training outputs (logs, metrics, predictions)
+│
+├── reports/                  <- Project report and analysis
+│   ├── README.md             <- **EXAM REPORT**
+│   ├── figures/              <- Figures and visualizations
+│   └── Alerts.png            <- Monitoring alerts dashboard
+│
+├── scripts/                  <- Utility scripts
+│   ├── batch_test.py         <- Batch prediction testing
+│   ├── export_onnx.py        <- ONNX model export
+│   └── manual_api_client.py  <- API testing client
+│
+├── src/                      <- Source code for the project
+│   ├── main.py               <- FastAPI application (prediction service)
 │   └── car_image_classification_using_cnn/
 │       ├── __init__.py
-│       ├── data.py               <- Dataset loading and splitting
-│       ├── data_transform.py     <- Image preprocessing and transformations
-│       ├── drift_detection.py    <- Data drift detection logic
-│       ├── model.py              <- CNN model architecture
-│       ├── train.py              <- Model training script
-│       ├── train_hydra.py        <- Training with Hydra configuration
-│       ├── evaluate.py           <- Model evaluation
-│       ├── visualize.py          <- Visualization of results and metrics
-│       ├── logger.py             <- Logging utilities
-│       └── main.py               <- Main entry point for running the pipeline
+│       ├── data.py           <- Dataset loading and preprocessing
+│       ├── data_transform.py <- Image transformations and augmentation
+│       ├── drift_detection.py <- Data drift detection and monitoring
+│       ├── model.py          <- CNN model architectures (ResNet, Custom)
+│       ├── train.py          <- Model training with Typer CLI
+│       ├── train_hydra.py    <- Training with Hydra configuration
+│       ├── evaluate.py       <- Model evaluation script
+│       ├── visualize.py      <- Results visualization
+│       └── logger.py         <- Centralized logging (Loguru)
 │
-├── tests/                <- Unit and integration tests
-├── .dockerignore         <- Files ignored by Docker
-├── .gitignore            <- Files ignored by Git
+├── tests/                    <- Unit and integration tests (205 tests, 82% coverage)
+│   ├── __init__.py
+│   ├── test_data.py          <- Dataset and preprocessing tests
+│   ├── test_data_transform.py <- Transform function tests
+│   ├── test_model.py         <- Model architecture tests
+│   ├── test_training.py      <- Training loop tests
+│   ├── test_train_hydra.py   <- Hydra training tests
+│   ├── test_evaluate.py      <- Evaluation function tests
+│   ├── test_logger.py        <- Logging utility tests
+│   ├── test_drift_detection.py <- Drift detection tests
+│   └── integrationtests/     <- API integration tests
+│       ├── conftest.py       <- Test fixtures
+│       └── test_apis.py      <- FastAPI endpoint tests
+│
+├── frontend.py               <- Gradio web interface
+├── client_bento.py           <- BentoML client
+├── service.py                <- Service management script
+│
+├── dist/                     <- Built distribution packages
+├── htmlcov/                  <- Test coverage HTML reports
+│
+├── .dockerignore             <- Files ignored by Docker
+├── .gitignore                <- Files ignored by Git
 
 ```
 # Project Description
